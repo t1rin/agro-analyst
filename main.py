@@ -14,7 +14,7 @@ dpg.set_viewport_min_width(MIN_WIDTH)
 
 class agroAnalyst:
     def __init__(self):
-        with dpg.window(**WINDOW_OPTIONS, tag=WINDOW_ID):
+        with dpg.window(tag=WINDOW_ID):
             dpg.add_text("Hello, world")
 
 application = agroAnalyst()

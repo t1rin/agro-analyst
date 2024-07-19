@@ -6,16 +6,7 @@ VIEWPORT_OPTIONS = {
     "width": 800,
 }
 
-MAX_HEIGHT = 0
-MAX_WIDTH = 0
-MIN_HEIGHT = 100
-MIN_WIDTH = 250
-
-WINDOW_OPTIONS = {
-    "autosize": True,
-    "no_collapse": True,
-    "no_resize": True,
-    "no_close": True,
-    "no_move": True,
-    "no_title_bar": True,
-}
+MAX_HEIGHT = -1
+MAX_WIDTH = -1
+MIN_HEIGHT = -1
+MIN_WIDTH = -1
