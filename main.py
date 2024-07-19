@@ -4,6 +4,7 @@ dpg.create_context()
 
 from config import *
 from identifiers import *
+from theme_settings import *
 from utils import *
 
 dpg.create_viewport(**VIEWPORT_OPTIONS)
@@ -19,10 +20,15 @@ class agroAnalyst:
 
 application = agroAnalyst()
 
-dpg.setup_dearpygui()
-dpg.show_viewport()
+if CUSTOM_THEME:
+    dpg.bind_theme(global_theme)
+if CUSTOM_FONT:
+    ... # TODO
+    # dpg.bind_font(font)
 
 dpg.set_primary_window(WINDOW_ID, True)
 
+dpg.setup_dearpygui()
+dpg.show_viewport()
 dpg.start_dearpygui()
 dpg.destroy_context()
