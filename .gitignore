@@ -1,1 +1,5 @@
 /tests
+/venv
+/__pycache__
+/*/__pycache__
+IDEAS.md
