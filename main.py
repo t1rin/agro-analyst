@@ -17,7 +17,7 @@ dpg.set_viewport_min_width(MIN_WIDTH)
 def create_menu_bar() -> None:
     with dpg.menu_bar():
         with dpg.menu(label=MENU_BAR["menus"]["view"]):
-            dpg.add_menu_item(label=MENU_BAR["view"]["main"], check=True, 
+            dpg.add_menu_item(label=MENU_BAR["view"]["main"], check=True, default_value=True, 
                 callback=change_tab, tag=MAIN_MENU_ITEM_ID, user_data=MAIN_TAB_ID)
             dpg.add_menu_item(label=MENU_BAR["view"]["selection"], check=True, 
                 callback=change_tab, tag=SELECTION_MENU_ITEM_ID, user_data=SELECTION_TAB_ID)
@@ -25,9 +25,12 @@ def create_menu_bar() -> None:
                 callback=change_tab, tag=VIEWER_MENU_ITEM_ID, user_data=VIEWER_TAB_ID)
 
 def update_menu_bar() -> None:
-    dpg.configure_item(MAIN_MENU_ITEM_ID, check=dpg.is_item_shown(MAIN_TAB_ID))
-    dpg.configure_item(SELECTION_MENU_ITEM_ID, check=dpg.is_item_shown(SELECTION_TAB_ID))
-    dpg.configure_item(VIEWER_MENU_ITEM_ID, check=dpg.is_item_shown(VIEWER_TAB_ID))
+    main_tab_is_shown = dpg.is_item_shown(MAIN_TAB_ID)
+    dpg.configure_item(MAIN_MENU_ITEM_ID, check=main_tab_is_shown)
+    selection_tab_is_shown = dpg.is_item_shown(SELECTION_TAB_ID)
+    dpg.configure_item(SELECTION_MENU_ITEM_ID, check=selection_tab_is_shown)
+    viewer_tab_is_shown = dpg.is_item_shown(VIEWER_TAB_ID)
+    dpg.configure_item(VIEWER_MENU_ITEM_ID, check=viewer_tab_is_shown)
 
 def change_tab(sender, app_data, widget_id) -> None:
     dpg.hide_item(MAIN_TAB_ID)
@@ -45,6 +48,7 @@ def create_tab_bar() -> None:
                 callback=change_tab, user_data=SELECTION_TAB_ID)
             dpg.add_button(label=MENU_BAR["view"]["viewer"], 
                 callback=change_tab, user_data=VIEWER_TAB_ID)
+            dpg.add_text()
 
 def begin() -> None:
     with dpg.window(tag=WINDOW_ID):
@@ -75,7 +79,9 @@ def begin() -> None:
                             ...
                         with dpg.child_window():
                             ...
-
+        
+        with dpg.popup(parent=WINDOW_ID):
+            dpg.add_3d_slider()
         # dpg.delete_item(TAB_BAR_ID) # TODO: показ вверху или внизу
         # tab_bar()
 
