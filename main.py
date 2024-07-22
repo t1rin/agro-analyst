@@ -2,6 +2,8 @@ import dearpygui.dearpygui as dpg
 
 dpg.create_context()
 
+from analyzer import *
+
 from config import *
 from identifiers import *
 from theme_settings import *
@@ -80,8 +82,6 @@ def begin() -> None:
                         with dpg.child_window():
                             ...
         
-        with dpg.popup(parent=WINDOW_ID):
-            dpg.add_3d_slider()
         # dpg.delete_item(TAB_BAR_ID) # TODO: показ вверху или внизу
         # tab_bar()
 
