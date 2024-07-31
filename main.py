@@ -34,7 +34,7 @@ def update_menu_bar() -> None:
     viewer_tab_is_shown = dpg.is_item_shown(VIEWER_TAB_ID)
     dpg.set_value(VIEWER_MENU_ITEM_ID, viewer_tab_is_shown)
 
-def change_tab(sender, app_data, widget_id) -> None:
+def change_tab(_, __, widget_id) -> None:
     dpg.hide_item(MAIN_TAB_ID)
     dpg.hide_item(SELECTION_TAB_ID)
     dpg.hide_item(VIEWER_TAB_ID)
