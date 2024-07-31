@@ -1,4 +1,6 @@
 import dearpygui.dearpygui as dpg
+from threading import Thread
+from time import sleep, process_time
 
 dpg.create_context()
 
@@ -15,6 +17,37 @@ dpg.set_viewport_max_width(MAX_WIDTH)
 dpg.set_viewport_min_height(MIN_HEIGHT)
 dpg.set_viewport_min_width(MIN_WIDTH)
 
+
+def check_conditions_loop() -> None:
+    pause = 1 / 20
+    while True:
+        check_images_dir()
+        check_results_dir()
+        sleep(pause)
+
+def check_images_dir() -> None:
+    data_images = json_read("./data/images/images.json")
+    if data_images:
+        images = data_images.keys()
+        for image in images:
+            data = data_images.pop(image)
+            Thread(target=image_analysis, args=[image, data]).start()
+
+def image_analysis(img_name: str, data: dict) -> None:
+    if not file_exists(img_name):
+        stamp = process_time()
+        while True:
+            if process_time() - stamp > 3:
+                break
+        if not file_exists(img_name):
+            print("not found image") # TODO: log
+            return
+    image = load_image(img_name)
+    segments = segmentation(image)
+    ...
+
+def check_results_dir() -> None:
+    ...
 
 def create_menu_bar() -> None:
     with dpg.menu_bar():
@@ -92,6 +125,9 @@ if CUSTOM_FONT:
     dpg.bind_font(global_font)
 
 begin()
+
+thread = Thread(target=check_conditions_loop, daemon=True)
+thread.start()
 
 dpg.set_primary_window(WINDOW_ID, True)
 
