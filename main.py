@@ -89,8 +89,7 @@ def begin() -> None:
 if CUSTOM_THEME:
     dpg.bind_theme(global_theme)
 if CUSTOM_FONT:
-    ... # TODO
-    # dpg.bind_font(font)
+    dpg.bind_font(global_font)
 
 begin()
 
