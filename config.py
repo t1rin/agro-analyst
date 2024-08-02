@@ -8,13 +8,13 @@ VIEWPORT_OPTIONS = {
 
 MENU_BAR = {
     "menus": {
-        "view": "View",
+        "view": "Вид",
     },
 
     "view": {
-        "main": "Main",
-        "selection": "Selection",
-        "viewer": "Viewer",
+        "main": "Главная",
+        "selection": "Выбор снимка",
+        "viewer": "Просмотр",
     }
 }
 
@@ -22,9 +22,6 @@ MAX_HEIGHT = -1
 MAX_WIDTH = -1
 MIN_HEIGHT = -1
 MIN_WIDTH = -1
-
-CUSTOM_THEME = True
-CUSTOM_FONT = False
 
 DEFAULT_PANEL_WIDTH = 250
 

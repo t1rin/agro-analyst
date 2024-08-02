@@ -31,16 +31,16 @@ def check_images_dir() -> None:
         images = data_images.keys()
         for image in images:
             data = data_images.pop(image)
+            image = "./data/images/" + image
             Thread(target=image_analysis, args=[image, data]).start()
 
 def image_analysis(img_name: str, data: dict) -> None:
     if not file_exists(img_name):
         stamp = process_time()
-        while True:
-            if process_time() - stamp > 3:
-                break
+        while process_time() - stamp < 3:
+            pass
         if not file_exists(img_name):
-            print("not found image") # TODO: log
+            ...
             return
     image = load_image(img_name)
     segments = segmentation(image)
@@ -52,6 +52,7 @@ def check_results_dir() -> None:
 def create_menu_bar() -> None:
     with dpg.menu_bar():
         with dpg.menu(label=MENU_BAR["menus"]["view"]):
+            dpg.bind_item_font(dpg.last_item(), menu_font)
             dpg.add_menu_item(label=MENU_BAR["view"]["main"], check=True, default_value=True, 
                 callback=change_tab, tag=MAIN_MENU_ITEM_ID, user_data=MAIN_TAB_ID)
             dpg.add_menu_item(label=MENU_BAR["view"]["selection"], check=True,
@@ -75,7 +76,7 @@ def change_tab(_, __, widget_id) -> None:
     update_menu_bar()
 
 def create_tab_bar() -> None:
-    with dpg.child_window(autosize_x=True, height=42): # HACK
+    with dpg.child_window(autosize_x=True, height=46): # HACK
         with dpg.group(horizontal=True):
             dpg.add_button(label=MENU_BAR["view"]["main"], 
                 callback=change_tab, user_data=MAIN_TAB_ID)
@@ -85,7 +86,7 @@ def create_tab_bar() -> None:
                 callback=change_tab, user_data=VIEWER_TAB_ID)
             dpg.add_text()
 
-def begin() -> None:
+def main() -> None:
     with dpg.window(tag=WINDOW_ID):
         create_menu_bar()
         if SHOW_TAB_BAR:
@@ -119,15 +120,13 @@ def begin() -> None:
         # tab_bar()
 
 
-if CUSTOM_THEME:
-    dpg.bind_theme(global_theme)
-if CUSTOM_FONT:
-    dpg.bind_font(global_font)
+dpg.bind_theme(global_theme)
+dpg.bind_font(global_font)
 
-begin()
+main()
 
-thread = Thread(target=check_conditions_loop, daemon=True)
-thread.start()
+check_conditions_thread = Thread(target=check_conditions_loop, daemon=True)
+check_conditions_thread.start()
 
 dpg.set_primary_window(WINDOW_ID, True)
 
