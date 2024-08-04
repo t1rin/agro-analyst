@@ -1,6 +1,8 @@
-import json, os
+import json, os, logging
 
 from json import JSONDecodeError
+
+logger = logging.getLogger(__name__)
 
 
 def _check_file_structure() -> None:
@@ -37,7 +39,7 @@ def json_read(src: str) -> dict:
     try:
         return json.loads(code)
     except JSONDecodeError:
-        return None # LOG
+        logger.error("Файл .JSON имеет некорректную структуру")
 
 def json_write(file: str, data: dict = {}) -> None:
     _check_file_structure()

@@ -1,6 +1,15 @@
 import dearpygui.dearpygui as dpg
+
 from threading import Thread
 from time import sleep, process_time
+
+import logging
+
+logging.basicConfig(level=logging.INFO,
+                    format='[%(levelname)s][%(asctime)s] - %(name)s - %(message)s',
+                    datefmt='%H:%M:%S')
+
+logger = logging.getLogger(__name__)
 
 dpg.create_context()
 
@@ -29,10 +38,10 @@ def check_images_dir() -> None:
     images_json_file = "./data/images/images.json"
     data_images = json_read(images_json_file)
     if not data_images:
+        if data_images is None:
+            json_write(images_json_file)
         return
     json_write(images_json_file)
-    print(555)
-    print(json_read(images_json_file))
     for name, data in data_images.items():
         img_name = "./data/images/" + name
         Thread(target=image_analysis, args=[img_name, data]).start()      
@@ -43,9 +52,11 @@ def image_analysis(img_name: str, data: dict) -> None:
         while process_time() - stamp < 3:
             pass
         if not file_exists(img_name):
-            ... # LOG
+            logger.warning(f"Не найден снимок {img_name}")
             return
-            
+    
+    logger.info(f"Найден новый снимок {img_name}")
+
     image = load_image(img_name)
 
     file_delete(img_name)
@@ -64,9 +75,11 @@ def image_analysis(img_name: str, data: dict) -> None:
 
     dpg.configure_item(MAIN_IMAGE2_ID, texture_tag=texture)
     
+    logger.info(f"Снимок {img_name} в обработке")
+
     segments = segmentation(image)
 
-    print("good")
+    logger.info(f"Обработан {img_name}")
 
 def check_results_dir() -> None:
     ...
@@ -75,6 +88,10 @@ def simple_preview_callback(_, __) -> None:
     simple_preview = dpg.get_value(SIMPLE_PREVIEW_ITEM_ID)
     dpg.configure_item(MAIN_IMAGE2_ID, show=(simple_preview))
     dpg.configure_item(MAIN_PLOT_ID, show=(not simple_preview))
+    logger.info(
+        "Выбран простой режим просмотра " if simple_preview
+        else "Выбран стандартный режим просмотра"
+    )
 
 def create_menu_bar() -> None:
     with dpg.menu_bar():
@@ -118,6 +135,7 @@ def create_tab_bar() -> None:
             dpg.add_text()
 
 def main() -> None:
+    logger.info("Initialization...")
     with dpg.window(tag=WINDOW_ID):
         create_menu_bar()
         if SHOW_TAB_BAR:

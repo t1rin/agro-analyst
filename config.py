@@ -17,7 +17,7 @@ MENU_BAR = {
         "selection": "Выбор снимка",
         "viewer": "Просмотр",
     },
-    
+
     "options": {
         "simple_preview": "Простой просмотр"
     }
@@ -30,6 +30,6 @@ MIN_WIDTH = -1
 
 DEFAULT_PANEL_WIDTH = 250
 
-DEFAULT_SIMPLE_PREVIEW = True
+DEFAULT_SIMPLE_PREVIEW = False
 
 SHOW_TAB_BAR = True

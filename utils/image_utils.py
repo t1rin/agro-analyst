@@ -4,7 +4,6 @@ import numpy as np
 from dearpygui.dearpygui import texture_registry, add_static_texture
 
 from cv2.typing import MatLike
-
 from numpy.typing import NDArray
 
 
