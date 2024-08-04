@@ -14,19 +14,20 @@ def _size_optimization(img_size: Size) -> Size:
     if height > MAX_HEIGHT or width > MAX_WIDTH:
         k = min(MAX_HEIGHT / height, MAX_WIDTH / width)
 
-    return Size(int(k * height), int(k * width))
+    return (int(k * width), int(k * height))
 
 
 def segmentation(img: MatLike, k_blur: int = 3) -> list[MatLike]:
     gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur_img = cv2.medianBlur(gray_img, k_blur)
 
-    shape = _size_optimization(blur_img.shape)
-    resized_img = cv2.resize(blur_img, shape)
+    size = _size_optimization(blur_img.shape)
+    resized_img = cv2.resize(blur_img, size)
 
     img_np = np.array(resized_img.copy())
-    edges = np.zeros(shape)
-    rows, cols = shape
+    edges = np.zeros(img_np.shape, dtype=np.uint8)
+    
+    rows, cols = edges.shape
 
     x_d = np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])
     y_d = np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])
@@ -53,7 +54,7 @@ def segmentation(img: MatLike, k_blur: int = 3) -> list[MatLike]:
         # cv2.drawContours(mask, [contour], -1, (255), thickness=cv2.FILLED)
         # masks.append(mask)
 
-    mask = np.zeros(shape)
+    mask = np.zeros(edges.shape)
     cv2.drawContours(mask, contours, -1, (255), thickness=cv2.FILLED)
 
     return [cv2.resize(mask, img.shape[:2])]

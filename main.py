@@ -19,20 +19,23 @@ dpg.set_viewport_min_width(MIN_WIDTH)
 
 
 def check_conditions_loop() -> None:
-    pause = 1 / 20
+    pause = 1 / 16
     while True:
         check_images_dir()
         check_results_dir()
         sleep(pause)
 
 def check_images_dir() -> None:
-    data_images = json_read("./data/images/images.json")
-    if data_images:
-        images = data_images.keys()
-        for image in images:
-            data = data_images.pop(image)
-            image = "./data/images/" + image
-            Thread(target=image_analysis, args=[image, data]).start()
+    images_json_file = "./data/images/images.json"
+    data_images = json_read(images_json_file)
+    if not data_images:
+        return
+    json_write(images_json_file)
+    print(555)
+    print(json_read(images_json_file))
+    for name, data in data_images.items():
+        img_name = "./data/images/" + name
+        Thread(target=image_analysis, args=[img_name, data]).start()      
 
 def image_analysis(img_name: str, data: dict) -> None:
     if not file_exists(img_name):
@@ -40,11 +43,28 @@ def image_analysis(img_name: str, data: dict) -> None:
         while process_time() - stamp < 3:
             pass
         if not file_exists(img_name):
-            ...
+            ... # LOG
             return
+            
     image = load_image(img_name)
+
+    file_delete(img_name)
+
+    height, width = image.shape[:2]
+    data = convert_to_texture_data(image.copy())
+
+    texture = create_texture(width, height, data)
+
+    dpg.configure_item(
+        item=MAIN_IMAGE_ID, 
+        texture_tag=texture, 
+        bounds_min=[0, 0], 
+        bounds_max=[width, height]
+    )
+    
     segments = segmentation(image)
-    ...
+
+    print("good")
 
 def check_results_dir() -> None:
     ...
@@ -95,11 +115,19 @@ def main() -> None:
             with dpg.group(tag=MAIN_TAB_ID):
                 with dpg.table(header_row=False, hideable=True, resizable=True):
                     dpg.add_table_column()
-                    dpg.add_table_column(
-                        width_fixed=True, init_width_or_weight=DEFAULT_PANEL_WIDTH)
+                    dpg.add_table_column(width_fixed=True, 
+                        init_width_or_weight=DEFAULT_PANEL_WIDTH)
                     with dpg.table_row():
                         with dpg.child_window():
-                            ...
+                            with dpg.plot(width=-1, height=-1, equal_aspects=True, no_mouse_pos=True, no_menus=True):
+                                options = {"no_gridlines": True, "no_tick_marks": True, "no_tick_labels": True}
+                                dpg.add_plot_axis(dpg.mvXAxis, **options) 
+                                with dpg.plot_axis(dpg.mvYAxis, **options):
+                                    dpg.add_image_series(
+                                        create_texture(),
+                                        [0, 0], [0, 0],
+                                        tag=MAIN_IMAGE_ID,
+                                    )
                         with dpg.child_window():
                             ...
             with dpg.group(tag=SELECTION_TAB_ID, show=False):

@@ -8,3 +8,5 @@ VIEWER_TAB_ID = dpg.generate_uuid()
 MAIN_MENU_ITEM_ID = dpg.generate_uuid()
 SELECTION_MENU_ITEM_ID = dpg.generate_uuid()
 VIEWER_MENU_ITEM_ID = dpg.generate_uuid()
+
+MAIN_IMAGE_ID = dpg.generate_uuid()

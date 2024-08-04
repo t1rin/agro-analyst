@@ -1,5 +1,7 @@
 import json, os
 
+from json import JSONDecodeError
+
 
 def _check_file_structure() -> None:
     paths = ["./data", "./data/images", "./data/results"]
@@ -7,14 +9,13 @@ def _check_file_structure() -> None:
         if not os.path.isdir(path):
             os.mkdir(path)
     file_name = "./data/images/images.json"
-    text = "{}"
     if not os.path.isfile(file_name):
         with open(file_name, "w", encoding="utf-8") as file:
-            file.write(text)
+            file.write("{}")
 
 def file_exists(file: str) -> bool:
     _check_file_structure()
-    return os.path.exists(file)
+    return os.path.isfile(file)
 
 def file_read(src: str) -> str:
     _check_file_structure()
@@ -26,11 +27,19 @@ def file_write(file: str, text: str) -> None:
     with open(file, "w", encoding="utf-8") as file:
         file.write(text)
 
+def file_delete(file: str) -> None:
+    if file_exists(file):
+        os.remove(file)
+
 def json_read(src: str) -> dict:
     _check_file_structure()
     code = file_read(src)
-    return json.loads(code)
+    try:
+        return json.loads(code)
+    except JSONDecodeError:
+        return None # LOG
 
-def json_write(file: str, data: dict) -> None:
+def json_write(file: str, data: dict = {}) -> None:
     _check_file_structure()
-    json.dump(data, file, indent=4)
+    code = json.dumps(data, indent=4)
+    file_write(file, code)
