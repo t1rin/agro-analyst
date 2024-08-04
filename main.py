@@ -56,11 +56,13 @@ def image_analysis(img_name: str, data: dict) -> None:
     texture = create_texture(width, height, data)
 
     dpg.configure_item(
-        item=MAIN_IMAGE_ID, 
+        item=MAIN_IMAGE1_ID, 
         texture_tag=texture, 
         bounds_min=[0, 0], 
         bounds_max=[width, height]
     )
+
+    dpg.configure_item(MAIN_IMAGE2_ID, texture_tag=texture)
     
     segments = segmentation(image)
 
@@ -69,20 +71,29 @@ def image_analysis(img_name: str, data: dict) -> None:
 def check_results_dir() -> None:
     ...
 
+def simple_preview_callback(_, __) -> None:
+    simple_preview = dpg.get_value(SIMPLE_PREVIEW_ITEM_ID)
+    dpg.configure_item(MAIN_IMAGE2_ID, show=(simple_preview))
+    dpg.configure_item(MAIN_PLOT_ID, show=(not simple_preview))
+
 def create_menu_bar() -> None:
     with dpg.menu_bar():
         with dpg.menu(label=MENU_BAR["menus"]["view"]):
             dpg.bind_item_font(dpg.last_item(), menu_font)
-            dpg.add_menu_item(label=MENU_BAR["view"]["main"], check=True, default_value=True, 
-                callback=change_tab, tag=MAIN_MENU_ITEM_ID, user_data=MAIN_TAB_ID)
+            dpg.add_menu_item(label=MENU_BAR["view"]["preview"], check=True, default_value=True, 
+                callback=change_tab, tag=PREVIEW_MENU_ITEM_ID, user_data=MAIN_TAB_ID)
             dpg.add_menu_item(label=MENU_BAR["view"]["selection"], check=True,
                 callback=change_tab, tag=SELECTION_MENU_ITEM_ID, user_data=SELECTION_TAB_ID)
             dpg.add_menu_item(label=MENU_BAR["view"]["viewer"], check=True,
                 callback=change_tab, tag=VIEWER_MENU_ITEM_ID, user_data=VIEWER_TAB_ID)
+        with dpg.menu(label=MENU_BAR["menus"]["options"]):
+            dpg.bind_item_font(dpg.last_item(), menu_font)
+            dpg.add_menu_item(label=MENU_BAR["options"]["simple_preview"], default_value=DEFAULT_SIMPLE_PREVIEW,
+                callback=simple_preview_callback, check=True, tag=SIMPLE_PREVIEW_ITEM_ID)
 
 def update_menu_bar() -> None:
     main_tab_is_shown = dpg.is_item_shown(MAIN_TAB_ID)
-    dpg.set_value(MAIN_MENU_ITEM_ID, main_tab_is_shown)
+    dpg.set_value(PREVIEW_MENU_ITEM_ID, main_tab_is_shown)
     selection_tab_is_shown = dpg.is_item_shown(SELECTION_TAB_ID)
     dpg.set_value(SELECTION_MENU_ITEM_ID, selection_tab_is_shown)
     viewer_tab_is_shown = dpg.is_item_shown(VIEWER_TAB_ID)
@@ -98,7 +109,7 @@ def change_tab(_, __, widget_id) -> None:
 def create_tab_bar() -> None:
     with dpg.child_window(autosize_x=True, height=46): # HACK
         with dpg.group(horizontal=True):
-            dpg.add_button(label=MENU_BAR["view"]["main"], 
+            dpg.add_button(label=MENU_BAR["view"]["preview"], 
                 callback=change_tab, user_data=MAIN_TAB_ID)
             dpg.add_button(label=MENU_BAR["view"]["selection"], 
                 callback=change_tab, user_data=SELECTION_TAB_ID)
@@ -119,15 +130,21 @@ def main() -> None:
                         init_width_or_weight=DEFAULT_PANEL_WIDTH)
                     with dpg.table_row():
                         with dpg.child_window():
-                            with dpg.plot(width=-1, height=-1, equal_aspects=True, no_mouse_pos=True, no_menus=True):
+                            with dpg.plot(width=-1, height=-1, equal_aspects=True, no_mouse_pos=True, 
+                                          no_menus=True, show=(not DEFAULT_SIMPLE_PREVIEW), tag=MAIN_PLOT_ID):
                                 options = {"no_gridlines": True, "no_tick_marks": True, "no_tick_labels": True}
                                 dpg.add_plot_axis(dpg.mvXAxis, **options) 
                                 with dpg.plot_axis(dpg.mvYAxis, **options):
                                     dpg.add_image_series(
                                         create_texture(),
                                         [0, 0], [0, 0],
-                                        tag=MAIN_IMAGE_ID,
+                                        tag=MAIN_IMAGE1_ID,
                                     )
+                            dpg.add_image(
+                                texture_tag=create_texture(),
+                                tag=MAIN_IMAGE2_ID,
+                                show=DEFAULT_SIMPLE_PREVIEW
+                            )
                         with dpg.child_window():
                             ...
             with dpg.group(tag=SELECTION_TAB_ID, show=False):
