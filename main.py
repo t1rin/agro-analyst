@@ -1,7 +1,7 @@
 import dearpygui.dearpygui as dpg
 
 from threading import Thread
-from time import sleep, process_time
+from time import sleep, time
 
 import logging
 
@@ -48,8 +48,8 @@ def check_images_dir() -> None:
 
 def image_analysis(img_name: str, data: dict) -> None:
     if not file_exists(img_name):
-        stamp = process_time()
-        while process_time() - stamp < 3:
+        stamp = time()
+        while time() - stamp < 3:
             pass
         if not file_exists(img_name):
             logger.warning(f"Не найден снимок {img_name}")
@@ -62,9 +62,9 @@ def image_analysis(img_name: str, data: dict) -> None:
     file_delete(img_name)
 
     height, width = image.shape[:2]
-    data = convert_to_texture_data(image.copy())
+    data_ = convert_to_texture_data(image.copy())
 
-    texture = create_texture(width, height, data)
+    texture = create_texture(width, height, data_)
 
     dpg.configure_item(
         item=MAIN_IMAGE1_ID, 
@@ -79,7 +79,23 @@ def image_analysis(img_name: str, data: dict) -> None:
 
     segments = segmentation(image)
 
-    logger.info(f"Обработан {img_name}")
+    analysis_data = {} # TODO
+
+    # for i in range(len(segments)):
+    #     analysis_data[i] = ...
+
+    ## saving
+
+    path = "./data/results/" + str(int(time()))
+
+    makedir(path)
+    image_record(join_path(path, "source.jpeg"), image)
+    for i in range(len(segments)):
+        image_record(join_path(path, f"{i}.jpeg"), segments[i])
+    json_write(join_path(path, "source_data.json"), data)
+    json_write(join_path(path, "analiysis_data.json"), analysis_data)
+
+    logger.info(f"Обработан и сохранён {path}")
 
 def check_results_dir() -> None:
     ...

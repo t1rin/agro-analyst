@@ -4,7 +4,7 @@ import numpy as np
 from cv2.typing import Size, MatLike
 
 
-def _size_optimization(img_size: Size) -> Size:
+def _size_optimization(img_size: tuple[int]) -> Size:
     MAX_HEIGHT = 200
     MAX_WIDTH = 200
     
@@ -57,6 +57,6 @@ def segmentation(img: MatLike, k_blur: int = 3) -> list[MatLike]:
     mask = np.zeros(edges.shape)
     cv2.drawContours(mask, contours, -1, (255), thickness=cv2.FILLED)
 
-    return [cv2.resize(mask, img.shape[:2])]
+    return [cv2.resize(mask, img.shape[:2][::-1])]
 
 

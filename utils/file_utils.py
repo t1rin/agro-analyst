@@ -45,3 +45,12 @@ def json_write(file: str, data: dict = {}) -> None:
     _check_file_structure()
     code = json.dumps(data, indent=4)
     file_write(file, code)
+
+def makedir(path: str) -> None:
+    try:
+        os.makedirs(path)
+    except FileExistsError:
+        logger.error(f"Директория {path} уже существует")
+
+def join_path(path: str, name: str) -> str:
+    return os.path.join(path, name)

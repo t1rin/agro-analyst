@@ -10,6 +10,9 @@ from numpy.typing import NDArray
 def load_image(src: str) -> MatLike:
     return cv2.imread(src)
 
+def image_record(path: str, img: MatLike) -> None:
+    cv2.imwrite(path, img)
+
 def convert_to_texture_data(img: MatLike) -> NDArray:
     img_rgba = cv2.cvtColor(img, cv2.COLOR_BGR2RGBA)
     img_np = np.array(img_rgba)
