@@ -21,3 +21,7 @@ with dpg.theme() as global_theme:
     with dpg.theme_component(dpg.mvPlot):
         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (28, 28, 28), category=dpg.mvThemeCat_Core)
         dpg.add_theme_color(dpg.mvPlotCol_Selection, (0, 120, 215), category=dpg.mvThemeCat_Plots)
+
+with dpg.theme() as active_tab_button_theme:
+    with dpg.theme_component(dpg.mvAll):
+        dpg.add_theme_color(dpg.mvThemeCol_Button, (29,151,236,103), category=dpg.mvThemeCat_Core) 

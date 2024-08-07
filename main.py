@@ -186,23 +186,40 @@ def update_menu_bar() -> None:
     dpg.set_value(SELECTION_MENU_ITEM_ID, selection_tab_is_shown)
     viewer_tab_is_shown = dpg.is_item_shown(VIEWER_TAB_ID)
     dpg.set_value(VIEWER_MENU_ITEM_ID, viewer_tab_is_shown)
+    
+    dpg.configure_item(
+        item=SIMPLE_PREVIEW_ITEM_ID,
+        show=main_tab_is_shown
+    )
 
 def change_tab(_, __, widget_id: int) -> None:
     dpg.hide_item(PREVIEW_TAB_ID)
     dpg.hide_item(SELECTION_TAB_ID)
     dpg.hide_item(VIEWER_TAB_ID)
     dpg.show_item(widget_id)
+
+    dpg.bind_item_theme(PREVIEW_TAB_BUTTON_ID, global_theme)
+    dpg.bind_item_theme(SELECTION_TAB_BUTTON_ID, global_theme)
+    dpg.bind_item_theme(VIEWER_TAB_BUTTON_ID, global_theme)
+    replaces = {PREVIEW_TAB_ID: PREVIEW_TAB_BUTTON_ID,
+                SELECTION_TAB_ID: SELECTION_TAB_BUTTON_ID,
+                VIEWER_TAB_ID: VIEWER_TAB_BUTTON_ID}
+    dpg.bind_item_theme(replaces[widget_id], active_tab_button_theme)
+
     update_menu_bar()
 
 def create_tab_bar() -> None:
     with dpg.child_window(autosize_x=True, height=46): # HACK
         with dpg.group(horizontal=True):
             dpg.add_button(label=MENU_BAR["view"]["preview"], 
-                callback=change_tab, user_data=PREVIEW_TAB_ID)
+                callback=change_tab, user_data=PREVIEW_TAB_ID,
+                tag=PREVIEW_TAB_BUTTON_ID)
             dpg.add_button(label=MENU_BAR["view"]["selection"], 
-                callback=change_tab, user_data=SELECTION_TAB_ID)
+                callback=change_tab, user_data=SELECTION_TAB_ID,
+                tag=SELECTION_TAB_BUTTON_ID)
             dpg.add_button(label=MENU_BAR["view"]["viewer"], 
-                callback=change_tab, user_data=VIEWER_TAB_ID)
+                callback=change_tab, user_data=VIEWER_TAB_ID,
+                tag=VIEWER_TAB_BUTTON_ID)
             dpg.add_text()
 
 def main() -> None:
