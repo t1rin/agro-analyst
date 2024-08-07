@@ -13,6 +13,17 @@ def load_image(src: str) -> MatLike:
 def image_record(path: str, img: MatLike) -> None:
     cv2.imwrite(path, img)
 
+def make_square_image(img: MatLike, size: int) -> MatLike:
+    img_np = np.array(img)
+    height, width = img_np.shape[:2]
+    size_ = min(height, width)
+    x_0 = (width - size_) // 2
+    y_0 = (height - size_) // 2
+    x_1 = x_0 + size_
+    y_1 = y_0 + size_
+    square = img_np[y_0:y_1, x_0:x_1, :]
+    return cv2.resize(square, (size, size))
+
 def convert_to_texture_data(img: MatLike) -> NDArray:
     img_rgba = cv2.cvtColor(img, cv2.COLOR_BGR2RGBA)
     img_np = np.array(img_rgba)

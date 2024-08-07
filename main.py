@@ -63,31 +63,34 @@ def image_analysis(img_name: str, data: dict) -> None:
     file_delete(img_name)
 
     height, width = image.shape[:2]
-    data_ = convert_to_texture_data(image.copy())
+    texture_data = convert_to_texture_data(image.copy())
 
-    texture = create_texture(width, height, data_)
+    texture = create_texture(width, height, texture_data)
 
     dpg.configure_item(
-        item=MAIN_IMAGE1_ID, 
+        item=PREVIEW_IMAGE1_ID, 
         texture_tag=texture, 
         bounds_min=[0, 0], 
         bounds_max=[width, height]
     )
 
-    dpg.configure_item(MAIN_IMAGE2_ID, texture_tag=texture)
+    dpg.configure_item(PREVIEW_IMAGE2_ID, texture_tag=texture)
 
-    data_ = NoneDict(data)
-    time_ = data_["time"]
+    data = NoneDict(data)
+    time_ = data["time"]
     if time_:
-        data_["time"] = seconds_to_str(time_)
-    data_["width"] = width
-    data_["height"] = height
+        data["time"] = seconds_to_str(time_)
+    data["width"] = width
+    data["height"] = height
 
     dpg.set_value(
         PREVIEW_TEXT_INFO_ID,
-        format_text(TEXT_INFO_PANEL, data_),
+        format_text(TEXT_INFO_PANEL, data),
     )
-    
+
+    dpg.show_item(ANALYSIS_INDICATOR_ID)
+    dpg.hide_item(BUTTON_SHOW_RESULT)
+
     logger.info(f"Снимок {img_name} в обработке")
 
     segments = segmentation(image)
@@ -110,17 +113,56 @@ def image_analysis(img_name: str, data: dict) -> None:
 
     logger.info(f"Обработан и сохранён {path}")
 
+    dpg.hide_item(ANALYSIS_INDICATOR_ID)
+
+    size = 60 # TODO
+    square = make_square_image(image, size)
+    texture_data = convert_to_texture_data(square)
+    texture = create_texture(size, size, texture_data)
+    dpg.configure_item(
+        item=BUTTON_SHOW_RESULT,
+        texture_tag=texture,
+        user_data=path,
+        show=True,
+    )
+
 def check_results_dir() -> None:
     ...
 
 def simple_preview_callback(_, __) -> None:
     simple_preview = dpg.get_value(SIMPLE_PREVIEW_ITEM_ID)
-    dpg.configure_item(MAIN_IMAGE2_ID, show=(simple_preview))
-    dpg.configure_item(MAIN_PLOT_ID, show=(not simple_preview))
+    dpg.configure_item(PREVIEW_IMAGE2_ID, show=(simple_preview))
+    dpg.configure_item(PREVIEW_PLOT_ID, show=(not simple_preview))
     logger.info(
         "Выбран простой режим просмотра " if simple_preview
         else "Выбран стандартный режим просмотра"
     )
+
+def show_result(_, __, result_path: str) -> None:
+    name_source_data = join_path(result_path, "source_data.json")
+    source_data = json_read(name_source_data)
+
+    dpg.set_value(
+        VIEWER_TEXT_INFO_ID,
+        format_text(TEXT_INFO_PANEL, source_data),
+    )
+
+    name_source_img = join_path(result_path, "source.jpeg")
+    source_image = load_image(name_source_img)
+
+    height, width = source_image.shape[:2]
+
+    texture_data = convert_to_texture_data(source_image.copy())
+    texture = create_texture(width, height, texture_data)    
+
+    dpg.configure_item(
+        item=VIEWER_IMAGE_ID, 
+        texture_tag=texture, 
+        bounds_min=[0, 0], 
+        bounds_max=[width, height]
+    )
+
+    change_tab(_, __, VIEWER_TAB_ID)
 
 def create_menu_bar() -> None:
     with dpg.menu_bar():
@@ -145,7 +187,7 @@ def update_menu_bar() -> None:
     viewer_tab_is_shown = dpg.is_item_shown(VIEWER_TAB_ID)
     dpg.set_value(VIEWER_MENU_ITEM_ID, viewer_tab_is_shown)
 
-def change_tab(_, __, widget_id) -> None:
+def change_tab(_, __, widget_id: int) -> None:
     dpg.hide_item(PREVIEW_TAB_ID)
     dpg.hide_item(SELECTION_TAB_ID)
     dpg.hide_item(VIEWER_TAB_ID)
@@ -178,40 +220,65 @@ def main() -> None:
                     with dpg.table_row():
                         with dpg.child_window():
                             with dpg.plot(width=-1, height=-1, equal_aspects=True, no_mouse_pos=True, 
-                                            no_menus=True, show=(not DEFAULT_SIMPLE_PREVIEW), tag=MAIN_PLOT_ID):
+                                            no_menus=True, show=(not DEFAULT_SIMPLE_PREVIEW), tag=PREVIEW_PLOT_ID):
                                 options = {"no_gridlines": True, "no_tick_marks": True, "no_tick_labels": True}
                                 dpg.add_plot_axis(dpg.mvXAxis, **options) 
                                 with dpg.plot_axis(dpg.mvYAxis, **options):
                                     dpg.add_image_series(
                                         create_texture(),
                                         [0, 0], [0, 0],
-                                        tag=MAIN_IMAGE1_ID,
+                                        tag=PREVIEW_IMAGE1_ID,
                                     )
                             dpg.add_image(
                                 texture_tag=create_texture(),
-                                tag=MAIN_IMAGE2_ID,
+                                tag=PREVIEW_IMAGE2_ID,
                                 show=DEFAULT_SIMPLE_PREVIEW
                             )
                         with dpg.child_window():
-                            with dpg.child_window(border=False):
-                                with dpg.collapsing_header(label="Данные", default_open=True):
-                                    with dpg.child_window(border=False):
-                                        dpg.add_text(format_text(TEXT_INFO_PANEL), 
-                                            tag=PREVIEW_TEXT_INFO_ID, indent=8, wrap=0)
-
+                            dpg.add_button(label="Домой", width=-1)
+                            dpg.add_button(label="Пауза", width=-1)
+                            dpg.add_spacer()
+                            with dpg.collapsing_header(label="Данные", default_open=True):
+                                dpg.add_text(format_text(TEXT_INFO_PANEL), 
+                                    tag=PREVIEW_TEXT_INFO_ID, indent=8, wrap=0)
+                            with dpg.collapsing_header(label="Анализ", default_open=True):
+                                with dpg.group(horizontal=True):
+                                    dpg.add_loading_indicator(tag=ANALYSIS_INDICATOR_ID, show=False)
+                                    dpg.add_image_button(
+                                        create_texture(),
+                                        tag=BUTTON_SHOW_RESULT,
+                                        callback=show_result,
+                                        show=False,
+                                    )
             with dpg.group(tag=SELECTION_TAB_ID, show=False):
                 with dpg.child_window():
                     ...
             with dpg.group(tag=VIEWER_TAB_ID, show=False):
                 with dpg.table(header_row=False, hideable=True, resizable=True):
-                    dpg.add_table_column(
-                        width_fixed=True, init_width_or_weight=DEFAULT_PANEL_WIDTH)
+                    dpg.add_table_column(width_fixed=True, 
+                        init_width_or_weight=DEFAULT_PANEL_WIDTH)
                     dpg.add_table_column()
                     with dpg.table_row():
                         with dpg.child_window():
-                            ...
+                            with dpg.collapsing_header(label="Информация о снимке", default_open=True):
+                                dpg.add_text(format_text(TEXT_INFO_PANEL), 
+                                    tag=VIEWER_TEXT_INFO_ID, indent=8, wrap=0)
+                            with dpg.collapsing_header(label="Данные", default_open=True):
+                                dpg.add_text(format_text(TEXT_DATA_PANEL), 
+                                    tag=VIEWER_TEXT_DATA_ID, indent=8, wrap=0)
+                            with dpg.collapsing_header(label="Статус", default_open=True):
+                                ...
                         with dpg.child_window():
-                            ...
+                            with dpg.plot(width=-1, height=-1, equal_aspects=True, 
+                                          no_mouse_pos=True, no_menus=True):
+                                options = {"no_tick_labels": True}
+                                dpg.add_plot_axis(dpg.mvXAxis, **options) 
+                                with dpg.plot_axis(dpg.mvYAxis, **options):
+                                    dpg.add_image_series(
+                                        create_texture(),
+                                        [0, 0], [0, 0],
+                                        tag=VIEWER_IMAGE_ID,
+                                    )
         
         # dpg.delete_item(TAB_BAR_ID) # TODO: показ вверху или внизу
         # tab_bar()

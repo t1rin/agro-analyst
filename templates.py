@@ -3,11 +3,11 @@ TEXT_INFO_PANEL = (
     "\n"
     "Координаты снимка: {coords}\n"
     "\n"
-    "Разрешение: {width}x{height}"
+    "Разрешение: {width}x{height}\n"
 )
 
 TEXT_DATA_PANEL = (
-    ...
+    " . . . "
 )
 
 class NoneDict(dict):

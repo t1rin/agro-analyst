@@ -2,7 +2,8 @@ from utils.datetime_utils import seconds_to_str
 
 from utils.image_utils import (
     load_image, 
-    convert_to_texture_data, 
+    convert_to_texture_data,
+    make_square_image, 
     create_texture, 
     image_record,
 )
