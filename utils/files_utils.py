@@ -14,9 +14,9 @@ def listdir(path: str) -> list[str]:
 def list_files(path: str) -> list[str]:
     _check_file_structure()
     names = listdir(path)
-    return [name for name in names if os.isfile(name)]
+    return [name for name in names if os.path.isfile(name)]
 
 def list_dirs(path: str) -> list[str]:
     _check_file_structure()
     names = listdir(path)
-    return [name for name in names if os.isdir(name)]
+    return [name for name in names if os.path.isdir(name)]

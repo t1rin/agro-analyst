@@ -27,9 +27,11 @@ dpg.set_viewport_max_width(MAX_WIDTH)
 dpg.set_viewport_min_height(MIN_HEIGHT)
 dpg.set_viewport_min_width(MIN_WIDTH)
 
-
+analysis_results = {} # key - result path name; # value - texture id for button
+scale = 1 # TODO
+                     
 def check_conditions_loop() -> None:
-    pause = 1 / 8
+    pause = 1 / UPDATING_RATE
     while True:
         check_images_dir()
         check_results_dir()
@@ -127,7 +129,61 @@ def image_analysis(img_name: str, data: dict) -> None:
     )
 
 def check_results_dir() -> None:
-    ...
+    global analysis_results
+    list_res = list_dirs("./data/results")
+    new_results = list(set(list_res) - set(analysis_results.keys()))
+
+    if not new_results: 
+        return
+    
+    for new_result in new_results:
+        image = load_image(join_path(new_result, "source.jpeg"))
+        square = make_square_image(image, DEFAULT_SIZE_BUTTON)
+        texture_data = convert_to_texture_data(square)
+        texture = create_texture(
+            DEFAULT_SIZE_BUTTON,
+            DEFAULT_SIZE_BUTTON,
+            texture_data,
+        )
+        analysis_results[new_result] = texture
+
+    update_list_results()
+
+def update_list_results() -> None:
+    dpg.delete_item(SELECTION_CHILD_ID, children_only=True)
+
+    global analysis_results
+    quantity = len(analysis_results)
+    paths = list(analysis_results.keys())
+    textures = list(analysis_results.values())
+
+    width, _ = dpg.get_item_rect_size(SELECTION_CHILD_ID)
+    if not width: return
+    size_btn = DEFAULT_SIZE_BUTTON # * scale # TODO
+    min_padding = MIN_PADDING_SELECTION
+    btn_padding = PADDING_BUTTON_SELECTION
+
+    columns = width // (size_btn + min_padding)
+    rows = quantity // columns + (quantity % columns != 0)
+
+    padding = (width - columns * size_btn) / (columns + 1)
+
+    i = 0
+    for row in range(rows):
+        for column in range(columns):
+            if i >= quantity:
+                break
+            dpg.add_image_button(
+                parent=SELECTION_CHILD_ID,
+                texture_tag=textures[i],
+                callback=show_result,
+                user_data=paths[i],
+                frame_padding=btn_padding,
+                pos=(column*(size_btn+btn_padding*2) + (column + 1)*padding,
+                     row*(size_btn+btn_padding*2) + (row + 1)*padding)
+            )
+            i += 1
+    
 
 def simple_preview_callback(_, __) -> None:
     simple_preview = dpg.get_value(SIMPLE_PREVIEW_ITEM_ID)
@@ -207,6 +263,7 @@ def change_tab(_, __, widget_id: int) -> None:
     dpg.bind_item_theme(replaces[widget_id], active_tab_button_theme)
 
     update_menu_bar()
+    update_list_results()
 
 def create_tab_bar() -> None:
     with dpg.child_window(autosize_x=True, height=46): # HACK
@@ -269,7 +326,8 @@ def main() -> None:
                                     )
             with dpg.group(tag=SELECTION_TAB_ID, show=False):
                 with dpg.child_window():
-                    ...
+                    with dpg.child_window(tag=SELECTION_CHILD_ID):
+                        pass
             with dpg.group(tag=VIEWER_TAB_ID, show=False):
                 with dpg.table(header_row=False, hideable=True, resizable=True):
                     dpg.add_table_column(width_fixed=True, 
@@ -305,6 +363,8 @@ dpg.bind_theme(global_theme)
 dpg.bind_font(global_font)
 
 main()
+
+dpg.set_viewport_resize_callback(update_list_results)
 
 check_conditions_thread = Thread(target=check_conditions_loop, daemon=True)
 check_conditions_thread.start()

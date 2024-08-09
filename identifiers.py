@@ -14,6 +14,8 @@ SELECTION_MENU_ITEM_ID = dpg.generate_uuid()
 VIEWER_MENU_ITEM_ID = dpg.generate_uuid()
 SIMPLE_PREVIEW_ITEM_ID = dpg.generate_uuid()
 
+SELECTION_CHILD_ID = dpg.generate_uuid()
+
 PREVIEW_PLOT_ID = dpg.generate_uuid()
 
 PREVIEW_IMAGE1_ID = dpg.generate_uuid()

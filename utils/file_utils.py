@@ -52,5 +52,5 @@ def makedir(path: str) -> None:
     except FileExistsError:
         logger.error(f"Директория {path} уже существует")
 
-def join_path(path: str, name: str) -> str:
-    return os.path.join(path, name)
+def join_path(path: str, *names: str) -> str:
+    return os.path.join(path, *names)
