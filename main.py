@@ -266,7 +266,7 @@ def change_tab(_, __, widget_id: int) -> None:
     update_list_results()
 
 def create_tab_bar() -> None:
-    with dpg.child_window(autosize_x=True, height=46): # HACK
+    with dpg.child_window(autosize_x=True, show=SHOW_TAB_BAR, height=46): # HACK
         with dpg.group(horizontal=True):
             dpg.add_button(label=MENU_BAR["view"]["preview"], 
                 callback=change_tab, user_data=PREVIEW_TAB_ID,
@@ -283,8 +283,7 @@ def main() -> None:
     logger.info("Initialization...")
     with dpg.window(tag=WINDOW_ID):
         create_menu_bar()
-        if SHOW_TAB_BAR:
-            create_tab_bar()
+        create_tab_bar()
         with dpg.group():
             with dpg.group(tag=PREVIEW_TAB_ID):
                 with dpg.table(header_row=False, hideable=True, resizable=True):
@@ -356,7 +355,7 @@ def main() -> None:
                                     )
         
         # dpg.delete_item(TAB_BAR_ID) # TODO: показ вверху или внизу
-        # tab_bar()
+        # create_tab_bar()
 
 
 dpg.bind_theme(global_theme)
