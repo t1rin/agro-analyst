@@ -19,7 +19,8 @@ MENU_BAR = {
     },
 
     "options": {
-        "simple_preview": "Простой просмотр"
+        "simple_preview": "Простой просмотр",
+        "scale": "Mасштаб"
     }
 }
 

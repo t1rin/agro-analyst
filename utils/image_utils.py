@@ -30,6 +30,9 @@ def convert_to_texture_data(img: MatLike) -> NDArray:
     texture = img_np.flatten() / 255
     return texture
 
-def create_texture(width: int = 0, height: int = 0, data: NDArray = []) -> int:
+def create_texture(width: int = 0, height: int = 0, data: NDArray = [], *, tag: int = 0) -> int:
     with texture_registry():
-        return add_static_texture(width, height, data)
+        if tag:
+            return add_static_texture(width, height, data, tag=tag)
+        else:
+            return add_static_texture(width, height, data)

@@ -27,9 +27,11 @@ dpg.set_viewport_max_width(MAX_WIDTH)
 dpg.set_viewport_min_height(MIN_HEIGHT)
 dpg.set_viewport_min_width(MIN_WIDTH)
 
-analysis_results = {} # key - result path name; # value - texture id for button
-scale = 1 # TODO
-                     
+analysis_results = {}
+scale = 1
+
+free_identifier = []
+
 def check_conditions_loop() -> None:
     pause = 1 / UPDATING_RATE
     while True:
@@ -47,7 +49,7 @@ def check_images_dir() -> None:
     json_write(images_json_file)
     for name, data in data_images.items():
         img_name = "./data/images/" + name
-        Thread(target=image_analysis, args=[img_name, data]).start()      
+        Thread(target=image_analysis, args=[img_name, data]).start()
 
 def image_analysis(img_name: str, data: dict) -> None:
     if not file_exists(img_name):
@@ -117,10 +119,13 @@ def image_analysis(img_name: str, data: dict) -> None:
 
     dpg.hide_item(ANALYSIS_INDICATOR_ID)
 
-    size = 60 # TODO
+    texture = TEXTURE_SHOW_RESULT
+    dpg.delete_item(texture)
+
+    size = DEFAULT_SIZE_BUTTON
     square = make_square_image(image, size)
     texture_data = convert_to_texture_data(square)
-    texture = create_texture(size, size, texture_data)
+    create_texture(size, size, texture_data, tag=texture)
     dpg.configure_item(
         item=BUTTON_SHOW_RESULT,
         texture_tag=texture,
@@ -133,33 +138,53 @@ def check_results_dir() -> None:
     list_res = list_dirs("./data/results")
     new_results = list(set(list_res) - set(analysis_results.keys()))
 
-    if not new_results: 
+    if not new_results:
         return
-    
-    for new_result in new_results:
-        image = load_image(join_path(new_result, "source.jpeg"))
-        square = make_square_image(image, DEFAULT_SIZE_BUTTON)
+
+    delete_results_textures()
+    load_results_textures(list_res)
+
+def load_results_textures(results: list[str]) -> None:
+    global scale, free_identifier
+    size = int(DEFAULT_SIZE_BUTTON * scale)
+    for result in results:
+        image = load_image(join_path(result, "source.jpeg"))
+        square = make_square_image(image, size)
         texture_data = convert_to_texture_data(square)
-        texture = create_texture(
-            DEFAULT_SIZE_BUTTON,
-            DEFAULT_SIZE_BUTTON,
-            texture_data,
-        )
-        analysis_results[new_result] = texture
+        if free_identifier:
+            texture = free_identifier.pop()
+        else:
+            texture = dpg.generate_uuid()
+        create_texture(size, size, texture_data, tag=texture)
+        analysis_results[result] = texture
 
     update_list_results()
 
-def update_list_results() -> None:
+def delete_results_textures() -> None:
     dpg.delete_item(SELECTION_CHILD_ID, children_only=True)
 
-    global analysis_results
+    global analysis_results, free_identifier
+    textures = analysis_results.values()
+    for texture in textures:
+        dpg.delete_item(texture)
+        free_identifier.append(texture)
+    analysis_results.clear()
+
+def update_list_results() -> None:
+    dpg.delete_item(SELECTION_CHILD_ID, children_only=True)
+    
+    global analysis_results, scale
     quantity = len(analysis_results)
-    paths = list(analysis_results.keys())
-    textures = list(analysis_results.values())
+    if not quantity:
+        return
+    sorted_results = sorted(analysis_results.items())
+    paths, textures = zip(*sorted_results)
 
     width, _ = dpg.get_item_rect_size(SELECTION_CHILD_ID)
-    if not width: return
-    size_btn = DEFAULT_SIZE_BUTTON # * scale # TODO
+    if not width:
+        delete_results_textures()
+        return
+    size_btn = int(DEFAULT_SIZE_BUTTON * scale)
     min_padding = MIN_PADDING_SELECTION
     btn_padding = PADDING_BUTTON_SELECTION
 
@@ -182,8 +207,7 @@ def update_list_results() -> None:
                 pos=(column*(size_btn+btn_padding*2) + (column + 1)*padding,
                      row*(size_btn+btn_padding*2) + (row + 1)*padding)
             )
-            i += 1
-    
+            i += 1  
 
 def simple_preview_callback(_, __) -> None:
     simple_preview = dpg.get_value(SIMPLE_PREVIEW_ITEM_ID)
@@ -193,6 +217,15 @@ def simple_preview_callback(_, __) -> None:
         "Выбран простой режим просмотра " if simple_preview
         else "Выбран стандартный режим просмотра"
     )
+
+def scale_callback(sender: int, __) -> None:
+    global scale
+    scale = dpg.get_value(sender)
+
+    global analysis_results
+    results = list(analysis_results.keys())
+    delete_results_textures()
+    load_results_textures(results)
 
 def show_result(_, __, result_path: str) -> None:
     name_source_data = join_path(result_path, "source_data.json")
@@ -234,6 +267,9 @@ def create_menu_bar() -> None:
             dpg.bind_item_font(dpg.last_item(), menu_font)
             dpg.add_menu_item(label=MENU_BAR["options"]["simple_preview"], default_value=DEFAULT_SIMPLE_PREVIEW,
                 callback=simple_preview_callback, check=True, tag=SIMPLE_PREVIEW_ITEM_ID)
+            dpg.add_menu(label=MENU_BAR["options"]["scale"], tag=SCALE_ITEM_ID, show=False)
+            dpg.add_slider_float(parent=dpg.last_item(), callback=scale_callback,
+                min_value=0.2, max_value=10, default_value=1, width=30, format="%.1f", vertical=True)
 
 def update_menu_bar() -> None:
     main_tab_is_shown = dpg.is_item_shown(PREVIEW_TAB_ID)
@@ -243,10 +279,11 @@ def update_menu_bar() -> None:
     viewer_tab_is_shown = dpg.is_item_shown(VIEWER_TAB_ID)
     dpg.set_value(VIEWER_MENU_ITEM_ID, viewer_tab_is_shown)
     
-    dpg.configure_item(
-        item=SIMPLE_PREVIEW_ITEM_ID,
-        show=main_tab_is_shown
-    )
+    dpg.configure_item(item=SIMPLE_PREVIEW_ITEM_ID,
+                       show=main_tab_is_shown)
+    
+    dpg.configure_item(item=SCALE_ITEM_ID,
+                       show=selection_tab_is_shown)
 
 def change_tab(_, __, widget_id: int) -> None:
     dpg.hide_item(PREVIEW_TAB_ID)
@@ -263,7 +300,6 @@ def change_tab(_, __, widget_id: int) -> None:
     dpg.bind_item_theme(replaces[widget_id], active_tab_button_theme)
 
     update_menu_bar()
-    update_list_results()
 
 def create_tab_bar() -> None:
     with dpg.child_window(autosize_x=True, show=SHOW_TAB_BAR, height=46): # HACK
@@ -297,20 +333,15 @@ def main() -> None:
                                 options = {"no_gridlines": True, "no_tick_marks": True, "no_tick_labels": True}
                                 dpg.add_plot_axis(dpg.mvXAxis, **options) 
                                 with dpg.plot_axis(dpg.mvYAxis, **options):
-                                    dpg.add_image_series(
-                                        create_texture(),
-                                        [0, 0], [0, 0],
-                                        tag=PREVIEW_IMAGE1_ID,
-                                    )
+                                    texture = create_texture(tag=TEXTURE_SHOW_RESULT)
+                                    dpg.add_image_series(texture, [0, 0], [0, 0], tag=PREVIEW_IMAGE1_ID)
                             dpg.add_image(
                                 texture_tag=create_texture(),
                                 tag=PREVIEW_IMAGE2_ID,
                                 show=DEFAULT_SIMPLE_PREVIEW
                             )
                         with dpg.child_window():
-                            dpg.add_button(label="Домой", width=-1)
-                            dpg.add_button(label="Пауза", width=-1)
-                            dpg.add_spacer()
+                            dpg.add_button(label="Домой (TODO)", width=-1)
                             with dpg.collapsing_header(label="Данные", default_open=True):
                                 dpg.add_text(format_text(TEXT_INFO_PANEL), 
                                     tag=PREVIEW_TEXT_INFO_ID, indent=8, wrap=0)
@@ -323,11 +354,11 @@ def main() -> None:
                                         callback=show_result,
                                         show=False,
                                     )
-            with dpg.group(tag=SELECTION_TAB_ID, show=False):
+            with dpg.group(tag=SELECTION_TAB_ID):
                 with dpg.child_window():
                     with dpg.child_window(tag=SELECTION_CHILD_ID):
                         pass
-            with dpg.group(tag=VIEWER_TAB_ID, show=False):
+            with dpg.group(tag=VIEWER_TAB_ID):
                 with dpg.table(header_row=False, hideable=True, resizable=True):
                     dpg.add_table_column(width_fixed=True, 
                         init_width_or_weight=DEFAULT_PANEL_WIDTH)
@@ -357,6 +388,7 @@ def main() -> None:
         # dpg.delete_item(TAB_BAR_ID) # TODO: показ вверху или внизу
         # create_tab_bar()
 
+    change_tab(None, None, PREVIEW_TAB_ID)
 
 dpg.bind_theme(global_theme)
 dpg.bind_font(global_font)

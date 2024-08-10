@@ -13,6 +13,7 @@ PREVIEW_MENU_ITEM_ID = dpg.generate_uuid()
 SELECTION_MENU_ITEM_ID = dpg.generate_uuid()
 VIEWER_MENU_ITEM_ID = dpg.generate_uuid()
 SIMPLE_PREVIEW_ITEM_ID = dpg.generate_uuid()
+SCALE_ITEM_ID = dpg.generate_uuid()
 
 SELECTION_CHILD_ID = dpg.generate_uuid()
 
@@ -28,3 +29,4 @@ VIEWER_TEXT_DATA_ID = dpg.generate_uuid()
 
 ANALYSIS_INDICATOR_ID = dpg.generate_uuid()
 BUTTON_SHOW_RESULT = dpg.generate_uuid()
+TEXTURE_SHOW_RESULT = dpg.generate_uuid()
