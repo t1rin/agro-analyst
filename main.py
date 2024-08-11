@@ -184,14 +184,24 @@ def update_list_results() -> None:
     if not width:
         delete_results_textures()
         return
-    size_btn = int(DEFAULT_SIZE_BUTTON * scale)
-    min_padding = MIN_PADDING_SELECTION
     btn_padding = PADDING_BUTTON_SELECTION
+    size_btn = int(DEFAULT_SIZE_BUTTON * scale + btn_padding * 2)
+    min_padding = MIN_PADDING_SELECTION
 
     columns = width // (size_btn + min_padding)
+    columns = max(columns, 1)
+    
     rows = quantity // columns + (quantity % columns != 0)
 
     padding = (width - columns * size_btn) / (columns + 1)
+
+    print()
+
+    print(f"{width=}")
+    print(f"{size_btn=}")
+    print(f"{columns=}")
+    print(f"{rows=}")
+    print(f"{padding=}")
 
     i = 0
     for row in range(rows):
@@ -204,8 +214,8 @@ def update_list_results() -> None:
                 callback=show_result,
                 user_data=paths[i],
                 frame_padding=btn_padding,
-                pos=(column*(size_btn+btn_padding*2) + (column + 1)*padding,
-                     row*(size_btn+btn_padding*2) + (row + 1)*padding)
+                pos=(column*size_btn + (column + 1)*padding,
+                     row*size_btn + (row + 1)*padding)
             )
             i += 1  
 
