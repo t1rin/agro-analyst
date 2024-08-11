@@ -1,6 +1,7 @@
 import dearpygui.dearpygui as dpg
 
 WINDOW_ID = dpg.generate_uuid()
+
 PREVIEW_TAB_ID = dpg.generate_uuid()
 SELECTION_TAB_ID = dpg.generate_uuid()
 VIEWER_TAB_ID = dpg.generate_uuid()
@@ -12,8 +13,8 @@ VIEWER_TAB_BUTTON_ID = dpg.generate_uuid()
 PREVIEW_MENU_ITEM_ID = dpg.generate_uuid()
 SELECTION_MENU_ITEM_ID = dpg.generate_uuid()
 VIEWER_MENU_ITEM_ID = dpg.generate_uuid()
-SIMPLE_PREVIEW_ITEM_ID = dpg.generate_uuid()
-SCALE_ITEM_ID = dpg.generate_uuid()
+SIMPLE_PREVIEW_MENU_ITEM_ID = dpg.generate_uuid()
+SCALE_MENU_ITEM_ID = dpg.generate_uuid()
 
 SELECTION_CHILD_ID = dpg.generate_uuid()
 

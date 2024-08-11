@@ -5,7 +5,7 @@ from time import sleep, time
 
 import logging
 
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.DEBUG,
                     format='[%(levelname)s][%(asctime)s] - %(name)s - %(message)s',
                     datefmt='%H:%M:%S')
 
@@ -30,7 +30,8 @@ dpg.set_viewport_min_width(MIN_WIDTH)
 analysis_results = {}
 scale = 1
 
-free_identifier = []
+free_identifiers = []
+
 
 def check_conditions_loop() -> None:
     pause = 1 / UPDATING_RATE
@@ -145,14 +146,14 @@ def check_results_dir() -> None:
     load_results_textures(list_res)
 
 def load_results_textures(results: list[str]) -> None:
-    global scale, free_identifier
+    global scale, free_identifiers
     size = int(DEFAULT_SIZE_BUTTON * scale)
     for result in results:
         image = load_image(join_path(result, "source.jpeg"))
         square = make_square_image(image, size)
         texture_data = convert_to_texture_data(square)
-        if free_identifier:
-            texture = free_identifier.pop()
+        if free_identifiers:
+            texture = free_identifiers.pop()
         else:
             texture = dpg.generate_uuid()
         create_texture(size, size, texture_data, tag=texture)
@@ -163,11 +164,11 @@ def load_results_textures(results: list[str]) -> None:
 def delete_results_textures() -> None:
     dpg.delete_item(SELECTION_CHILD_ID, children_only=True)
 
-    global analysis_results, free_identifier
+    global analysis_results, free_identifiers
     textures = analysis_results.values()
     for texture in textures:
         dpg.delete_item(texture)
-        free_identifier.append(texture)
+        free_identifiers.append(texture)
     analysis_results.clear()
 
 def update_list_results() -> None:
@@ -181,9 +182,6 @@ def update_list_results() -> None:
     paths, textures = zip(*sorted_results)
 
     width, _ = dpg.get_item_rect_size(SELECTION_CHILD_ID)
-    if not width:
-        delete_results_textures()
-        return
     btn_padding = PADDING_BUTTON_SELECTION
     size_btn = int(DEFAULT_SIZE_BUTTON * scale + btn_padding * 2)
     min_padding = MIN_PADDING_SELECTION
@@ -212,7 +210,7 @@ def update_list_results() -> None:
             i += 1  
 
 def simple_preview_callback(_, __) -> None:
-    simple_preview = dpg.get_value(SIMPLE_PREVIEW_ITEM_ID)
+    simple_preview = dpg.get_value(SIMPLE_PREVIEW_MENU_ITEM_ID)
     dpg.configure_item(PREVIEW_IMAGE2_ID, show=(simple_preview))
     dpg.configure_item(PREVIEW_PLOT_ID, show=(not simple_preview))
     logger.info(
@@ -268,8 +266,8 @@ def create_menu_bar() -> None:
         with dpg.menu(label=MENU_BAR["menus"]["options"]):
             dpg.bind_item_font(dpg.last_item(), menu_font)
             dpg.add_menu_item(label=MENU_BAR["options"]["simple_preview"], default_value=DEFAULT_SIMPLE_PREVIEW,
-                callback=simple_preview_callback, check=True, tag=SIMPLE_PREVIEW_ITEM_ID)
-            dpg.add_menu(label=MENU_BAR["options"]["scale"], tag=SCALE_ITEM_ID, show=False)
+                callback=simple_preview_callback, check=True, tag=SIMPLE_PREVIEW_MENU_ITEM_ID)
+            dpg.add_menu(label=MENU_BAR["options"]["scale"], tag=SCALE_MENU_ITEM_ID, show=False)
             dpg.add_slider_float(parent=dpg.last_item(), callback=scale_callback,
                 min_value=0.2, max_value=10, default_value=1, width=30, format="%.1f", vertical=True)
 
@@ -281,10 +279,10 @@ def update_menu_bar() -> None:
     viewer_tab_is_shown = dpg.is_item_shown(VIEWER_TAB_ID)
     dpg.set_value(VIEWER_MENU_ITEM_ID, viewer_tab_is_shown)
     
-    dpg.configure_item(item=SIMPLE_PREVIEW_ITEM_ID,
+    dpg.configure_item(item=SIMPLE_PREVIEW_MENU_ITEM_ID,
                        show=main_tab_is_shown)
     
-    dpg.configure_item(item=SCALE_ITEM_ID,
+    dpg.configure_item(item=SCALE_MENU_ITEM_ID,
                        show=selection_tab_is_shown)
 
 def change_tab(_, __, widget_id: int) -> None:
@@ -300,6 +298,8 @@ def change_tab(_, __, widget_id: int) -> None:
                 SELECTION_TAB_ID: SELECTION_TAB_BUTTON_ID,
                 VIEWER_TAB_ID: VIEWER_TAB_BUTTON_ID}
     dpg.bind_item_theme(replaces[widget_id], active_tab_button_theme)
+
+    delete_results_textures()
 
     update_menu_bar()
 
@@ -392,12 +392,19 @@ def main() -> None:
 
     change_tab(None, None, PREVIEW_TAB_ID)
 
+def close_all_on_exit() -> None:
+    dpg.delete_item(WINDOW_ID, children_only=True)
+    dpg.delete_item(WINDOW_ID)
+    dpg.stop_dearpygui()
+    logger.info("Программа успешно завершена.")
+
 dpg.bind_theme(global_theme)
 dpg.bind_font(global_font)
 
 main()
 
 dpg.set_viewport_resize_callback(update_list_results)
+dpg.set_exit_callback(close_all_on_exit)
 
 check_conditions_thread = Thread(target=check_conditions_loop, daemon=True)
 check_conditions_thread.start()
