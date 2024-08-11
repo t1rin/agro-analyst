@@ -16,6 +16,7 @@ MENU_BAR = {
         "preview": "Главная",
         "selection": "Выбор снимка",
         "viewer": "Просмотр",
+        "full_screen": "FullScreen"
     },
 
     "options": {

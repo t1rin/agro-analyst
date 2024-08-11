@@ -181,6 +181,15 @@ def update_list_results() -> None:
     sorted_results = sorted(analysis_results.items())
     paths, textures = zip(*sorted_results)
 
+    results = [] # TODO
+    for path in paths:
+        from random import randint 
+        good = randint(0, 4)
+        if good:
+            results.append(("Никаких отклонений от нормы не найдено", good))
+        else:
+            results.append(("Найдены отклонения от нормы!", good)) # TODO
+
     width, _ = dpg.get_item_rect_size(SELECTION_CHILD_ID)
     btn_padding = PADDING_BUTTON_SELECTION
     size_btn = int(DEFAULT_SIZE_BUTTON * scale + btn_padding * 2)
@@ -205,8 +214,10 @@ def update_list_results() -> None:
                 user_data=paths[i],
                 frame_padding=btn_padding,
                 pos=(column*size_btn + (column + 1)*padding,
-                     row*size_btn + (row + 1)*padding)
-            )
+                     row*size_btn + (row + 1)*padding))
+            with dpg.tooltip(dpg.last_item()):
+                status, good = results[i]
+                dpg.add_text(status, color=(0, 255, 0) if good else (255, 0, 0))
             i += 1  
 
 def simple_preview_callback(_, __) -> None:
@@ -263,6 +274,8 @@ def create_menu_bar() -> None:
                 callback=change_tab, tag=SELECTION_MENU_ITEM_ID, user_data=SELECTION_TAB_ID)
             dpg.add_menu_item(label=MENU_BAR["view"]["viewer"], check=True,
                 callback=change_tab, tag=VIEWER_MENU_ITEM_ID, user_data=VIEWER_TAB_ID)
+            dpg.add_separator()
+            dpg.add_menu_item(label=MENU_BAR["view"]["full_screen"], callback=lambda:dpg.toggle_viewport_fullscreen())
         with dpg.menu(label=MENU_BAR["menus"]["options"]):
             dpg.bind_item_font(dpg.last_item(), menu_font)
             dpg.add_menu_item(label=MENU_BAR["options"]["simple_preview"], default_value=DEFAULT_SIMPLE_PREVIEW,
@@ -343,7 +356,6 @@ def main() -> None:
                                 show=DEFAULT_SIMPLE_PREVIEW
                             )
                         with dpg.child_window():
-                            dpg.add_button(label="Домой (TODO)", width=-1)
                             with dpg.collapsing_header(label="Данные", default_open=True):
                                 dpg.add_text(format_text(TEXT_INFO_PANEL), 
                                     tag=PREVIEW_TEXT_INFO_ID, indent=8, wrap=0)
