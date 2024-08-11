@@ -359,7 +359,7 @@ def main() -> None:
             with dpg.group(tag=SELECTION_TAB_ID):
                 with dpg.child_window():
                     with dpg.child_window(tag=SELECTION_CHILD_ID):
-                        pass
+                        dpg.bind_item_theme(dpg.last_item(), selection_theme)
             with dpg.group(tag=VIEWER_TAB_ID):
                 with dpg.table(header_row=False, hideable=True, resizable=True):
                     dpg.add_table_column(width_fixed=True, 
