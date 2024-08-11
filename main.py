@@ -190,18 +190,10 @@ def update_list_results() -> None:
 
     columns = width // (size_btn + min_padding)
     columns = max(columns, 1)
-    
+
     rows = quantity // columns + (quantity % columns != 0)
 
     padding = (width - columns * size_btn) / (columns + 1)
-
-    print()
-
-    print(f"{width=}")
-    print(f"{size_btn=}")
-    print(f"{columns=}")
-    print(f"{rows=}")
-    print(f"{padding=}")
 
     i = 0
     for row in range(rows):
