@@ -220,6 +220,10 @@ def update_list_results() -> None:
                 dpg.add_text(status, color=(0, 255, 0) if good else (255, 0, 0))
             i += 1  
 
+def fullscreen_callback() -> None:
+    dpg.toggle_viewport_fullscreen()
+    logger.info("Кнопка " + MENU_BAR["view"]["full_screen"] + " была активирована")
+
 def simple_preview_callback(_, __) -> None:
     simple_preview = dpg.get_value(SIMPLE_PREVIEW_MENU_ITEM_ID)
     dpg.configure_item(PREVIEW_IMAGE2_ID, show=(simple_preview))
@@ -275,7 +279,7 @@ def create_menu_bar() -> None:
             dpg.add_menu_item(label=MENU_BAR["view"]["viewer"], check=True,
                 callback=change_tab, tag=VIEWER_MENU_ITEM_ID, user_data=VIEWER_TAB_ID)
             dpg.add_separator()
-            dpg.add_menu_item(label=MENU_BAR["view"]["full_screen"], callback=lambda:dpg.toggle_viewport_fullscreen())
+            dpg.add_menu_item(label=MENU_BAR["view"]["full_screen"], check=True, callback=fullscreen_callback)
         with dpg.menu(label=MENU_BAR["menus"]["options"]):
             dpg.bind_item_font(dpg.last_item(), menu_font)
             dpg.add_menu_item(label=MENU_BAR["options"]["simple_preview"], default_value=DEFAULT_SIMPLE_PREVIEW,
