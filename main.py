@@ -1,11 +1,9 @@
+import asyncio, time
 import dearpygui.dearpygui as dpg
-
-from threading import Thread
-from time import sleep, time
 
 import logging
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                     format='[%(levelname)s][%(asctime)s] - %(name)s - %(message)s',
                     datefmt='%H:%M:%S')
 
@@ -21,207 +19,37 @@ from identifiers import *
 from theme_settings import *
 from utils import *
 
-dpg.create_viewport(**VIEWPORT_OPTIONS)
-dpg.set_viewport_max_height(MAX_HEIGHT)
-dpg.set_viewport_max_width(MAX_WIDTH)
-dpg.set_viewport_min_height(MIN_HEIGHT)
-dpg.set_viewport_min_width(MIN_WIDTH)
 
 analysis_results = {}
 scale = 1
 
 free_identifiers = []
 
+async def conditions_loop() -> None:
+    ...
+    # await check_images_dir()
+    # await check_results_dir()
 
-def check_conditions_loop() -> None:
-    pause = 1 / UPDATING_RATE
-    while True:
-        check_images_dir()
-        check_results_dir()
-        sleep(pause)
-
-def check_images_dir() -> None:
+async def check_images_dir() -> None:
     images_json_file = "./data/images/images.json"
-    data_images = json_read(images_json_file)
+    data_images = await asyncio.to_thread(json_read, images_json_file)
+
     if not data_images:
         if data_images is None:
-            json_write(images_json_file)
+            await asyncio.to_thread(json_write, images_json_file)
         return
-    json_write(images_json_file)
+    
+    await asyncio.to_thread(json_write, images_json_file)
+
     for name, data in data_images.items():
         img_name = "./data/images/" + name
-        Thread(target=image_analysis, args=[img_name, data]).start()
+        asyncio.create_task(image_analysis(img_name, data))
 
-def image_analysis(img_name: str, data: dict) -> None:
-    if not file_exists(img_name):
-        stamp = time()
-        while time() - stamp < 3:
-            pass
-        if not file_exists(img_name):
-            logger.warning(f"Не найден снимок {img_name}")
-            return
-    
-    logger.info(f"Найден новый снимок {img_name}")
+def change_tab_callback(_, __, widget_id: int):
+    asyncio.run(change_tab(widget_id))
 
-    image = load_image(img_name)
-
-    file_delete(img_name)
-
-    height, width = image.shape[:2]
-    texture_data = convert_to_texture_data(image.copy())
-
-    texture = create_texture(width, height, texture_data)
-
-    dpg.configure_item(
-        item=PREVIEW_IMAGE1_ID, 
-        texture_tag=texture, 
-        bounds_min=[0, 0], 
-        bounds_max=[width, height]
-    )
-
-    dpg.configure_item(PREVIEW_IMAGE2_ID, texture_tag=texture)
-
-    data = NoneDict(data)
-    time_ = data["time"]
-    if time_:
-        data["time"] = seconds_to_str(time_)
-    data["width"] = width
-    data["height"] = height
-
-    dpg.set_value(
-        PREVIEW_TEXT_INFO_ID,
-        format_text(TEXT_INFO_PANEL, data),
-    )
-
-    dpg.show_item(ANALYSIS_INDICATOR_ID)
-    dpg.hide_item(BUTTON_SHOW_RESULT)
-
-    logger.info(f"Снимок {img_name} в обработке")
-
-    segments = segmentation(image)
-
-    analysis_data = {} # TODO
-
-    # for i in range(len(segments)):
-    #     analysis_data[i] = ...
-
-    ## saving
-
-    path = "./data/results/" + str(int(time()))
-
-    makedir(path)
-    image_record(join_path(path, "source.jpeg"), image)
-    for i in range(len(segments)):
-        image_record(join_path(path, f"{i}.jpeg"), segments[i])
-    json_write(join_path(path, "source_data.json"), data)
-    json_write(join_path(path, "analiysis_data.json"), analysis_data)
-
-    logger.info(f"Обработан и сохранён {path}")
-
-    dpg.hide_item(ANALYSIS_INDICATOR_ID)
-
-    texture = TEXTURE_SHOW_RESULT
-    dpg.delete_item(texture)
-
-    size = DEFAULT_SIZE_BUTTON
-    square = make_square_image(image, size)
-    texture_data = convert_to_texture_data(square)
-    create_texture(size, size, texture_data, tag=texture)
-    dpg.configure_item(
-        item=BUTTON_SHOW_RESULT,
-        texture_tag=texture,
-        user_data=path,
-        show=True,
-    )
-
-def check_results_dir() -> None:
-    global analysis_results
-    list_res = list_dirs("./data/results")
-    new_results = list(set(list_res) - set(analysis_results.keys()))
-
-    if not new_results:
-        return
-
-    delete_results_textures()
-    load_results_textures(list_res)
-
-def load_results_textures(results: list[str]) -> None:
-    global scale, free_identifiers
-    size = int(DEFAULT_SIZE_BUTTON * scale)
-    for result in results:
-        image = load_image(join_path(result, "source.jpeg"))
-        square = make_square_image(image, size)
-        texture_data = convert_to_texture_data(square)
-        if free_identifiers:
-            texture = free_identifiers.pop()
-        else:
-            texture = dpg.generate_uuid()
-        create_texture(size, size, texture_data, tag=texture)
-        analysis_results[result] = texture
-
-    update_list_results()
-
-def delete_results_textures() -> None:
-    dpg.delete_item(SELECTION_CHILD_ID, children_only=True)
-
-    global analysis_results, free_identifiers
-    textures = analysis_results.values()
-    for texture in textures:
-        dpg.delete_item(texture)
-        free_identifiers.append(texture)
-    analysis_results.clear()
-
-def update_list_results() -> None:
-    dpg.delete_item(SELECTION_CHILD_ID, children_only=True)
-    
-    global analysis_results, scale
-    quantity = len(analysis_results)
-    if not quantity:
-        return
-    sorted_results = sorted(analysis_results.items())
-    paths, textures = zip(*sorted_results)
-
-    results = [] # TODO
-    for path in paths:
-        from random import randint 
-        good = randint(0, 4)
-        if good:
-            results.append(("Никаких отклонений от нормы не найдено", good))
-        else:
-            results.append(("Найдены отклонения от нормы!", good)) # TODO
-
-    width, _ = dpg.get_item_rect_size(SELECTION_CHILD_ID)
-    btn_padding = PADDING_BUTTON_SELECTION
-    size_btn = int(DEFAULT_SIZE_BUTTON * scale + btn_padding * 2)
-    min_padding = MIN_PADDING_SELECTION
-
-    columns = width // (size_btn + min_padding)
-    columns = max(columns, 1)
-
-    rows = quantity // columns + (quantity % columns != 0)
-
-    padding = (width - columns * size_btn) / (columns + 1)
-
-    i = 0
-    for row in range(rows):
-        for column in range(columns):
-            if i >= quantity:
-                break
-            dpg.add_image_button(
-                parent=SELECTION_CHILD_ID,
-                texture_tag=textures[i],
-                callback=show_result,
-                user_data=paths[i],
-                frame_padding=btn_padding,
-                pos=(column*size_btn + (column + 1)*padding,
-                     row*size_btn + (row + 1)*padding))
-            with dpg.tooltip(dpg.last_item()):
-                status, good = results[i]
-                dpg.add_text(status, color=(0, 255, 0) if good else (255, 0, 0))
-            i += 1  
-
-def fullscreen_callback() -> None:
-    dpg.toggle_viewport_fullscreen()
+def fullscreen_callback(sender: int, __) -> None:
+    dpg.toggle_viewport_fullscreen() # TODO
     logger.info("Кнопка " + MENU_BAR["view"]["full_screen"] + " была активирована")
 
 def simple_preview_callback(_, __) -> None:
@@ -239,70 +67,16 @@ def scale_callback(sender: int, __) -> None:
 
     global analysis_results
     results = list(analysis_results.keys())
-    delete_results_textures()
-    load_results_textures(results)
+    # delete_results_textures()
+    # load_results_textures(results)
 
-def show_result(_, __, result_path: str) -> None:
-    name_source_data = join_path(result_path, "source_data.json")
-    source_data = json_read(name_source_data)
+def close_all_on_exit() -> None:
+    dpg.delete_item(WINDOW_ID, children_only=True)
+    dpg.delete_item(WINDOW_ID)
+    dpg.stop_dearpygui()
+    logger.info("Программа успешно завершена.")
 
-    dpg.set_value(
-        VIEWER_TEXT_INFO_ID,
-        format_text(TEXT_INFO_PANEL, source_data),
-    )
-
-    name_source_img = join_path(result_path, "source.jpeg")
-    source_image = load_image(name_source_img)
-
-    height, width = source_image.shape[:2]
-
-    texture_data = convert_to_texture_data(source_image.copy())
-    texture = create_texture(width, height, texture_data)    
-
-    dpg.configure_item(
-        item=VIEWER_IMAGE_ID, 
-        texture_tag=texture, 
-        bounds_min=[0, 0], 
-        bounds_max=[width, height]
-    )
-
-    change_tab(_, __, VIEWER_TAB_ID)
-
-def create_menu_bar() -> None:
-    with dpg.menu_bar():
-        with dpg.menu(label=MENU_BAR["menus"]["view"]):
-            dpg.bind_item_font(dpg.last_item(), menu_font)
-            dpg.add_menu_item(label=MENU_BAR["view"]["preview"], check=True, default_value=True, 
-                callback=change_tab, tag=PREVIEW_MENU_ITEM_ID, user_data=PREVIEW_TAB_ID)
-            dpg.add_menu_item(label=MENU_BAR["view"]["selection"], check=True,
-                callback=change_tab, tag=SELECTION_MENU_ITEM_ID, user_data=SELECTION_TAB_ID)
-            dpg.add_menu_item(label=MENU_BAR["view"]["viewer"], check=True,
-                callback=change_tab, tag=VIEWER_MENU_ITEM_ID, user_data=VIEWER_TAB_ID)
-            dpg.add_separator()
-            dpg.add_menu_item(label=MENU_BAR["view"]["full_screen"], check=True, callback=fullscreen_callback)
-        with dpg.menu(label=MENU_BAR["menus"]["options"]):
-            dpg.bind_item_font(dpg.last_item(), menu_font)
-            dpg.add_menu_item(label=MENU_BAR["options"]["simple_preview"], default_value=DEFAULT_SIMPLE_PREVIEW,
-                callback=simple_preview_callback, check=True, tag=SIMPLE_PREVIEW_MENU_ITEM_ID)
-            dpg.add_menu(label=MENU_BAR["options"]["scale"], tag=SCALE_MENU_ITEM_ID, show=False)
-            dpg.add_slider_float(parent=dpg.last_item(), callback=scale_callback,
-                min_value=0.2, max_value=10, default_value=1, width=30, format="%.1f", vertical=True)
-
-def update_menu_bar() -> None:
-    main_tab_is_shown = dpg.is_item_shown(PREVIEW_TAB_ID)
-    dpg.set_value(PREVIEW_MENU_ITEM_ID, main_tab_is_shown)
-    selection_tab_is_shown = dpg.is_item_shown(SELECTION_TAB_ID)
-    dpg.set_value(SELECTION_MENU_ITEM_ID, selection_tab_is_shown)
-    viewer_tab_is_shown = dpg.is_item_shown(VIEWER_TAB_ID)
-    dpg.set_value(VIEWER_MENU_ITEM_ID, viewer_tab_is_shown)
-    
-    dpg.configure_item(item=SIMPLE_PREVIEW_MENU_ITEM_ID,
-                       show=main_tab_is_shown)
-    
-    dpg.configure_item(item=SCALE_MENU_ITEM_ID,
-                       show=selection_tab_is_shown)
-
-def change_tab(_, __, widget_id: int) -> None:
+async def change_tab(widget_id: int) -> None:
     dpg.hide_item(PREVIEW_TAB_ID)
     dpg.hide_item(SELECTION_TAB_ID)
     dpg.hide_item(VIEWER_TAB_ID)
@@ -316,29 +90,62 @@ def change_tab(_, __, widget_id: int) -> None:
                 VIEWER_TAB_ID: VIEWER_TAB_BUTTON_ID}
     dpg.bind_item_theme(replaces[widget_id], active_tab_button_theme)
 
-    delete_results_textures()
+    # delete_results_textures()
 
-    update_menu_bar()
+    await update_menu_bar()
 
-def create_tab_bar() -> None:
+async def update_menu_bar() -> None:
+    main_tab_is_shown = dpg.is_item_shown(PREVIEW_TAB_ID)
+    dpg.set_value(PREVIEW_MENU_ITEM_ID, main_tab_is_shown)
+    selection_tab_is_shown = dpg.is_item_shown(SELECTION_TAB_ID)
+    dpg.set_value(SELECTION_MENU_ITEM_ID, selection_tab_is_shown)
+    viewer_tab_is_shown = dpg.is_item_shown(VIEWER_TAB_ID)
+    dpg.set_value(VIEWER_MENU_ITEM_ID, viewer_tab_is_shown)
+    
+    dpg.configure_item(item=SIMPLE_PREVIEW_MENU_ITEM_ID,
+                       show=main_tab_is_shown)
+    
+    dpg.configure_item(item=SCALE_MENU_ITEM_ID,
+                       show=selection_tab_is_shown)
+
+async def create_menu_bar() -> None:
+    with dpg.menu_bar():
+        with dpg.menu(label=MENU_BAR["menus"]["view"]):
+            dpg.bind_item_font(dpg.last_item(), menu_font)
+            dpg.add_menu_item(label=MENU_BAR["view"]["preview"], check=True, default_value=True, 
+                callback=change_tab_callback, tag=PREVIEW_MENU_ITEM_ID, user_data=PREVIEW_TAB_ID)
+            dpg.add_menu_item(label=MENU_BAR["view"]["selection"], check=True,
+                callback=change_tab_callback, tag=SELECTION_MENU_ITEM_ID, user_data=SELECTION_TAB_ID)
+            dpg.add_menu_item(label=MENU_BAR["view"]["viewer"], check=True,
+                callback=change_tab_callback, tag=VIEWER_MENU_ITEM_ID, user_data=VIEWER_TAB_ID)
+            dpg.add_separator()
+            dpg.add_menu_item(label=MENU_BAR["view"]["full_screen"], check=True, callback=fullscreen_callback)
+        with dpg.menu(label=MENU_BAR["menus"]["options"]):
+            dpg.bind_item_font(dpg.last_item(), menu_font)
+            dpg.add_menu_item(label=MENU_BAR["options"]["simple_preview"], default_value=DEFAULT_SIMPLE_PREVIEW,
+                callback=simple_preview_callback, check=True, tag=SIMPLE_PREVIEW_MENU_ITEM_ID)
+            dpg.add_menu(label=MENU_BAR["options"]["scale"], tag=SCALE_MENU_ITEM_ID, show=False)
+            dpg.add_slider_float(parent=dpg.last_item(), callback=scale_callback,
+                min_value=0.2, max_value=10, default_value=1, width=30, format="%.1f", vertical=True)
+
+async def create_tab_bar() -> None:
     with dpg.child_window(autosize_x=True, show=SHOW_TAB_BAR, height=46): # HACK
         with dpg.group(horizontal=True):
             dpg.add_button(label=MENU_BAR["view"]["preview"], 
-                callback=change_tab, user_data=PREVIEW_TAB_ID,
+                callback=change_tab_callback, user_data=PREVIEW_TAB_ID,
                 tag=PREVIEW_TAB_BUTTON_ID)
             dpg.add_button(label=MENU_BAR["view"]["selection"], 
-                callback=change_tab, user_data=SELECTION_TAB_ID,
+                callback=change_tab_callback, user_data=SELECTION_TAB_ID,
                 tag=SELECTION_TAB_BUTTON_ID)
             dpg.add_button(label=MENU_BAR["view"]["viewer"], 
-                callback=change_tab, user_data=VIEWER_TAB_ID,
+                callback=change_tab_callback, user_data=VIEWER_TAB_ID,
                 tag=VIEWER_TAB_BUTTON_ID)
             dpg.add_text()
 
-def main() -> None:
-    logger.info("Initialization...")
+async def init_interface() -> None:
     with dpg.window(tag=WINDOW_ID):
-        create_menu_bar()
-        create_tab_bar()
+        await create_menu_bar()
+        await create_tab_bar()
         with dpg.group():
             with dpg.group(tag=PREVIEW_TAB_ID):
                 with dpg.table(header_row=False, hideable=True, resizable=True):
@@ -369,7 +176,7 @@ def main() -> None:
                                     dpg.add_image_button(
                                         create_texture(),
                                         tag=BUTTON_SHOW_RESULT,
-                                        callback=show_result,
+                                        #callback=show_result,
                                         show=False,
                                     )
             with dpg.group(tag=SELECTION_TAB_ID):
@@ -406,28 +213,38 @@ def main() -> None:
         # dpg.delete_item(TAB_BAR_ID) # TODO: показ вверху или внизу
         # create_tab_bar()
 
-    change_tab(None, None, PREVIEW_TAB_ID)
+    await change_tab(PREVIEW_TAB_ID)
 
-def close_all_on_exit() -> None:
-    dpg.delete_item(WINDOW_ID, children_only=True)
-    dpg.delete_item(WINDOW_ID)
-    dpg.stop_dearpygui()
-    logger.info("Программа успешно завершена.")
+async def main_loop() -> None:
+    interval = 1 / UPDATING_RATE
+    time_stamp = time.time()
+    while dpg.is_dearpygui_running():
+        if time.time() - time_stamp >= interval:
+            asyncio.create_task(conditions_loop())
+            time_stamp = time.time()
+        dpg.render_dearpygui_frame()
 
-dpg.bind_theme(global_theme)
-dpg.bind_font(global_font)
+if __name__ == "__main__":
+    logger.info("Initialization...")
 
-main()
+    dpg.create_viewport(**VIEWPORT_OPTIONS)
+    dpg.set_viewport_max_height(MAX_HEIGHT)
+    dpg.set_viewport_max_width(MAX_WIDTH)
+    dpg.set_viewport_min_height(MIN_HEIGHT)
+    dpg.set_viewport_min_width(MIN_WIDTH)
 
-dpg.set_viewport_resize_callback(update_list_results)
-dpg.set_exit_callback(close_all_on_exit)
+    dpg.bind_theme(global_theme)
+    dpg.bind_font(global_font)
 
-check_conditions_thread = Thread(target=check_conditions_loop, daemon=True)
-check_conditions_thread.start()
+    asyncio.run(init_interface())
 
-dpg.set_primary_window(WINDOW_ID, True)
+    dpg.set_exit_callback(close_all_on_exit)
 
-dpg.setup_dearpygui()
-dpg.show_viewport()
-dpg.start_dearpygui()
+    dpg.set_primary_window(WINDOW_ID, True)
+
+    dpg.setup_dearpygui()
+    dpg.show_viewport()
+    
+    asyncio.run(main_loop())
+
 dpg.destroy_context()
