@@ -31,3 +31,5 @@ VIEWER_TEXT_DATA_ID = dpg.generate_uuid()
 ANALYSIS_INDICATOR_ID = dpg.generate_uuid()
 BUTTON_SHOW_RESULT = dpg.generate_uuid()
 TEXTURE_SHOW_RESULT = dpg.generate_uuid()
+
+FPS_TEXT_LABEL_ID = dpg.generate_uuid()
