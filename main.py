@@ -5,7 +5,7 @@ from asyncio import AbstractEventLoop
 
 import logging
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                     format='[%(levelname)s][%(asctime)s] - %(name)s - %(message)s',
                     datefmt='%H:%M:%S')
 
@@ -31,7 +31,7 @@ async def check_loop() -> None:
     interval = 1 / UPDATING_RATE
     while True:
         await check_images_dir()
-        # check_results_dir()
+        await check_results_dir()
         await asyncio.sleep(interval)
 
 async def check_images_dir() -> None:
@@ -141,6 +141,99 @@ async def save_result(segments: list, data: dict, analysis_data: dict, image):
         show=True,
     )
 
+async def check_results_dir() -> None:
+    global analysis_results
+    list_res = await asyncio.to_thread(list_dirs, "./data/results")
+    new_results = list(set(list_res) - set(analysis_results.keys()))
+
+    if not new_results:
+        return
+
+    await delete_results_textures()
+    await load_results_textures(list_res)
+
+async def load_result_texture(result: str, size: int) -> None:
+    global free_identifiers, analysis_results
+    image = await asyncio.to_thread(load_image, join_path(result, "source.jpeg"))
+    square = await asyncio.to_thread(make_square_image, image, size)
+    texture_data = await asyncio.to_thread(convert_to_texture_data, square)
+    if free_identifiers:
+        texture = free_identifiers.pop()
+    else:
+        texture = dpg.generate_uuid()
+    create_texture(size, size, texture_data, tag=texture)
+    analysis_results[result] = texture
+
+async def load_results_textures(results: list[str]) -> None:
+    global scale
+    size = int(DEFAULT_SIZE_BUTTON * scale)
+
+    load_tasks = [load_result_texture(result, size) 
+                  for result in results]
+    
+    await asyncio.gather(*load_tasks)
+
+    await update_list_results()
+
+async def delete_results_textures() -> None:
+    dpg.delete_item(SELECTION_CHILD_ID, children_only=True)
+
+    global analysis_results, free_identifiers
+    textures = analysis_results.values()
+    for texture in textures:
+        dpg.delete_item(texture)
+        free_identifiers.append(texture)
+    analysis_results.clear()
+
+async def update_list_results() -> None:
+    dpg.delete_item(SELECTION_CHILD_ID, children_only=True)
+    
+    global analysis_results, scale
+    quantity = len(analysis_results)
+    if not quantity:
+        return
+    sorted_results = sorted(analysis_results.items())
+    paths, textures = zip(*sorted_results)
+
+    results = [] # TODO
+    for path in paths:
+        from random import randint 
+        good = randint(0, 4)
+        if good:
+            results.append(("Никаких отклонений от нормы не найдено", good))
+        else:
+            results.append(("Найдены отклонения от нормы!", good)) # TODO
+
+    width, _ = dpg.get_item_rect_size(SELECTION_CHILD_ID)
+    btn_padding = PADDING_BUTTON_SELECTION
+    size_btn = int(DEFAULT_SIZE_BUTTON * scale + btn_padding * 2)
+    min_padding = MIN_PADDING_SELECTION
+
+    columns = width // (size_btn + min_padding)
+    columns = max(columns, 1)
+
+    rows = quantity // columns + (quantity % columns != 0)
+
+    padding = (width - columns * size_btn) / (columns + 1)
+
+    i = 0
+    for row in range(rows):
+        for column in range(columns):
+            if i >= quantity:
+                break
+            dpg.add_image_button(
+                parent=SELECTION_CHILD_ID,
+                texture_tag=textures[i],
+                callback=show_result,
+                user_data=paths[i],
+                frame_padding=btn_padding,
+                pos=(column*size_btn + (column + 1)*padding,
+                     row*size_btn + (row + 1)*padding))
+            with dpg.tooltip(dpg.last_item()):
+                status, good = results[i]
+                dpg.add_text(status, color=(0, 255, 0) if good else (255, 0, 0))
+            i += 1  
+
 def change_tab_callback(_, __, widget_id: int):
     asyncio.run(change_tab(widget_id))
 
@@ -163,8 +256,38 @@ def scale_callback(sender: int, __) -> None:
 
     global analysis_results
     results = list(analysis_results.keys())
-    # delete_results_textures()
-    # load_results_textures(results)
+    asyncio.run(delete_results_textures())
+    asyncio.run(load_results_textures(results))
+
+def show_result(_, __, result_path: str) -> None:
+    logger.debug(f"Путь к выбранному результату: {result_path}")
+    name_source_data = join_path(result_path, "source_data.json")
+    source_data = json_read(name_source_data)
+
+    dpg.set_value(
+        VIEWER_TEXT_INFO_ID,
+        format_text(TEXT_INFO_PANEL, source_data),
+    )
+
+    name_source_img = join_path(result_path, "source.jpeg")
+    source_image = load_image(name_source_img)
+
+    height, width = source_image.shape[:2]
+
+    texture_data = convert_to_texture_data(source_image.copy())
+    texture = create_texture(width, height, texture_data)    
+
+    dpg.configure_item(
+        item=VIEWER_IMAGE_ID, 
+        texture_tag=texture, 
+        bounds_min=[0, 0], 
+        bounds_max=[width, height]
+    )
+
+    change_tab_callback(None, None, VIEWER_TAB_ID)
+
+def resize_callback(_, __) -> None:
+    asyncio.run(update_list_results())
 
 def close_all_on_exit() -> None:
     global event_loop
@@ -191,7 +314,7 @@ async def change_tab(widget_id: int) -> None:
                 VIEWER_TAB_ID: VIEWER_TAB_BUTTON_ID}
     dpg.bind_item_theme(replaces[widget_id], active_tab_button_theme)
 
-    # delete_results_textures()
+    await delete_results_textures()
 
     await update_menu_bar()
 
@@ -279,7 +402,7 @@ async def init_interface() -> None:
                                     dpg.add_image_button(
                                         create_texture(),
                                         tag=BUTTON_SHOW_RESULT,
-                                        #callback=show_result,
+                                        callback=show_result,
                                         show=False,
                                     )
             with dpg.group(tag=SELECTION_TAB_ID):
@@ -339,6 +462,7 @@ if __name__ == "__main__":
 
     asyncio.run(init_interface())
 
+    dpg.set_viewport_resize_callback(resize_callback)
     dpg.set_exit_callback(close_all_on_exit)
 
     dpg.set_primary_window(WINDOW_ID, True)

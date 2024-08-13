@@ -19,10 +19,13 @@ def file_exists(file: str) -> bool:
     _check_file_structure()
     return os.path.isfile(file)
 
-def file_read(src: str) -> str:
+def file_read(src: str) -> str | None:
     _check_file_structure()
-    with open(src, "r", encoding="utf-8") as file:
-        return file.read()
+    if file_exists(src):
+        with open(src, "r", encoding="utf-8") as file:
+            return file.read()
+    else:
+        logger.error(f"Ошибка чтения. Файла {src} не существует")
 
 def file_write(file: str, text: str) -> None:
     _check_file_structure()
