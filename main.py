@@ -1,11 +1,14 @@
-import asyncio, threading, time
+import asyncio
 import dearpygui.dearpygui as dpg
+
+import threading
+import time
 
 from asyncio import AbstractEventLoop
 
 import logging
 
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.DEBUG,
                     format='[%(levelname)s][%(asctime)s] - %(name)s - %(message)s',
                     datefmt='%H:%M:%S')
 
@@ -20,6 +23,8 @@ from templates import *
 from identifiers import *
 from theme_settings import *
 from utils import *
+
+from dpg_wrapper import DpgWrapper
 
 
 analysis_results = {}
@@ -107,7 +112,7 @@ async def image_analysis(img_name: str, data: dict) -> None:
 
     await save_result(segments, data, analysis_data, image)
 
-async def save_result(segments: list, data: dict, analysis_data: dict, image):
+async def save_result(segments: list, data: dict, analysis_data: dict, image) -> None:
     path = f"./data/results/{int(time.time())}"
 
     await asyncio.to_thread(makedir, path)
@@ -234,7 +239,7 @@ async def update_list_results() -> None:
                 dpg.add_text(status, color=(0, 255, 0) if good else (255, 0, 0))
             i += 1  
 
-def change_tab_callback(_, __, widget_id: int):
+def change_tab_callback(_, __, widget_id: int) -> None:
     asyncio.run(change_tab(widget_id))
 
 def fullscreen_callback(sender: int, __) -> None:
@@ -364,7 +369,6 @@ async def create_tab_bar() -> None:
             dpg.add_button(label=MENU_BAR["view"]["viewer"], 
                 callback=change_tab_callback, user_data=VIEWER_TAB_ID,
                 tag=VIEWER_TAB_BUTTON_ID)
-            dpg.add_child_window(width=1)
             dpg.add_text(tag=FPS_TEXT_LABEL_ID)
 
 async def init_interface() -> None:
@@ -451,6 +455,8 @@ def run_async_tasks(loop: AbstractEventLoop) -> None:
 if __name__ == "__main__":
     logger.info("Initialization...")
 
+    dpg_wrapper = DpgWrapper()
+
     dpg.create_viewport(**VIEWPORT_OPTIONS)
     dpg.set_viewport_max_height(MAX_HEIGHT)
     dpg.set_viewport_max_width(MAX_WIDTH)
@@ -475,14 +481,13 @@ if __name__ == "__main__":
 
     while dpg.is_dearpygui_running():
         if logger.getEffectiveLevel() == logging.DEBUG:
+            normal_fps = 60
             fps = dpg.get_frame_rate()
-            # normal_fps = 60
-            dpg.set_value(FPS_TEXT_LABEL_ID, f"FPS: {fps:.2f}")
-            # dpg.configure_item(
-            #     item=FPS_TEXT_LABEL_ID, # TODO
-            #     label=f"FPS: {fps:.2f}",
-            #     # color=(255-fps/normal_fps, fps/normal_fps, 0, 0)
-            # )
+            share = min(fps / normal_fps, 1)
+            dpg.set_value(item=FPS_TEXT_LABEL_ID, value=f"FPS: {fps:.2f}")
+            dpg.configure_item(item=FPS_TEXT_LABEL_ID,
+                color=(255-255*share, 255*share, 0, 255)) 
+        dpg_wrapper.update_dpg()
         dpg.render_dearpygui_frame()
 
 dpg.destroy_context()
