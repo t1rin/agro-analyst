@@ -30,8 +30,6 @@ from dpg_wrapper import DpgWrapper
 analysis_results = {}
 scale = 1
 
-free_identifiers = []
-
 async def check_loop() -> None:
     interval = 1 / UPDATING_RATE
     while True:
@@ -54,7 +52,7 @@ async def check_images_dir() -> None:
     for name, data in data_images.items():
         img_name = f"./data/images/{name}"
         task.append(asyncio.create_task(image_analysis(img_name, data)))
-    asyncio.gather(*task)
+    asyncio.gather(*task) # HACK
 
 async def image_analysis(img_name: str, data: dict) -> None:
     img_exists = await asyncio.to_thread(file_exists, img_name)
@@ -66,6 +64,8 @@ async def image_analysis(img_name: str, data: dict) -> None:
             logger.warning(f"Не найден снимок {img_name}")
             return
     
+    global dpg_wrapper, id_generator
+
     logger.info(f"Найден новый снимок {img_name}")
 
     image = await asyncio.to_thread(load_image, img_name)
@@ -75,14 +75,16 @@ async def image_analysis(img_name: str, data: dict) -> None:
     texture_data = await asyncio.to_thread(convert_to_texture_data, image.copy())
     texture = create_texture(width, height, texture_data)
 
-    dpg.configure_item(
+    id_generator.add_active_id(texture)
+
+    dpg_wrapper.configure_item(
         item=PREVIEW_IMAGE1_ID, 
         texture_tag=texture, 
         bounds_min=[0, 0], 
         bounds_max=[width, height]
     )
 
-    dpg.configure_item(PREVIEW_IMAGE2_ID, texture_tag=texture)
+    dpg_wrapper.configure_item(PREVIEW_IMAGE2_ID, texture_tag=texture)
 
     data = NoneDict(data)
     time_ = data["time"]
@@ -96,8 +98,8 @@ async def image_analysis(img_name: str, data: dict) -> None:
         format_text(TEXT_INFO_PANEL, data),
     )
 
-    dpg.show_item(ANALYSIS_INDICATOR_ID)
-    dpg.hide_item(BUTTON_SHOW_RESULT)
+    dpg_wrapper.configure_item(ANALYSIS_INDICATOR_ID, show=True)
+    dpg_wrapper.configure_item(BUTTON_SHOW_RESULT, show=False)
 
     logger.info(f"Снимок {img_name} в обработке")
 
@@ -130,16 +132,16 @@ async def save_result(segments: list, data: dict, analysis_data: dict, image) ->
 
     logger.info(f"Обработан и сохранён {path}")
 
-    dpg.hide_item(ANALYSIS_INDICATOR_ID)
+    dpg_wrapper.configure_item(ANALYSIS_INDICATOR_ID, show=False)
 
     texture = TEXTURE_SHOW_RESULT
-    dpg.delete_item(texture)
+    dpg_wrapper.delete_item(texture)
 
     size = DEFAULT_SIZE_BUTTON
     square = await asyncio.to_thread(make_square_image, image, size)
     texture_data = await asyncio.to_thread(convert_to_texture_data, square)
     create_texture(size, size, texture_data, tag=texture)
-    await asyncio.to_thread(dpg.configure_item,
+    dpg_wrapper.configure_item(
         item=BUTTON_SHOW_RESULT,
         texture_tag=texture,
         user_data=path,
@@ -158,14 +160,11 @@ async def check_results_dir() -> None:
     await load_results_textures(list_res)
 
 async def load_result_texture(result: str, size: int) -> None:
-    global free_identifiers, analysis_results
+    global analysis_results, id_generator
     image = await asyncio.to_thread(load_image, join_path(result, "source.jpeg"))
     square = await asyncio.to_thread(make_square_image, image, size)
     texture_data = await asyncio.to_thread(convert_to_texture_data, square)
-    if free_identifiers:
-        texture = free_identifiers.pop()
-    else:
-        texture = dpg.generate_uuid()
+    texture = id_generator.generate_id()
     create_texture(size, size, texture_data, tag=texture)
     analysis_results[result] = texture
 
@@ -181,19 +180,19 @@ async def load_results_textures(results: list[str]) -> None:
     await update_list_results()
 
 async def delete_results_textures() -> None:
-    dpg.delete_item(SELECTION_CHILD_ID, children_only=True)
+    dpg_wrapper.delete_item(SELECTION_CHILD_ID, children_only=True)
 
-    global analysis_results, free_identifiers
+    global analysis_results, id_generator
     textures = analysis_results.values()
     for texture in textures:
-        dpg.delete_item(texture)
-        free_identifiers.append(texture)
+        dpg_wrapper.delete_item(texture)
+        id_generator.release_id(texture)
     analysis_results.clear()
 
 async def update_list_results() -> None:
-    dpg.delete_item(SELECTION_CHILD_ID, children_only=True)
+    dpg_wrapper.delete_item(SELECTION_CHILD_ID, children_only=True)
     
-    global analysis_results, scale
+    global analysis_results, scale, id_generator
     quantity = len(analysis_results)
     if not quantity:
         return
@@ -226,7 +225,10 @@ async def update_list_results() -> None:
         for column in range(columns):
             if i >= quantity:
                 break
-            dpg.add_image_button(
+            image_button_id = id_generator.generate_id()
+            dpg_wrapper.add_item(
+                item_type_="image_button",
+                tag=image_button_id,
                 parent=SELECTION_CHILD_ID,
                 texture_tag=textures[i],
                 callback=show_result,
@@ -234,9 +236,10 @@ async def update_list_results() -> None:
                 frame_padding=btn_padding,
                 pos=(column*size_btn + (column + 1)*padding,
                      row*size_btn + (row + 1)*padding))
-            with dpg.tooltip(dpg.last_item()):
-                status, good = results[i]
-                dpg.add_text(status, color=(0, 255, 0) if good else (255, 0, 0))
+            tooltop_id = id_generator.generate_id()
+            dpg_wrapper.add_item(item_type_="tooltip", parent=image_button_id, tag=tooltop_id)
+            status, good = results[i]
+            dpg_wrapper.add_item(item_type_="text", parent=tooltop_id, default_value=status, color=(0, 255, 0) if good else (255, 0, 0))
             i += 1  
 
 def change_tab_callback(_, __, widget_id: int) -> None:
@@ -369,7 +372,8 @@ async def create_tab_bar() -> None:
             dpg.add_button(label=MENU_BAR["view"]["viewer"], 
                 callback=change_tab_callback, user_data=VIEWER_TAB_ID,
                 tag=VIEWER_TAB_BUTTON_ID)
-            dpg.add_text(tag=FPS_TEXT_LABEL_ID)
+            dpg.add_text(tag=FPS_DEBUG_TEXT_ID)
+            dpg.add_text(tag=IDS_DEBUG_TEXT_ID)
 
 async def init_interface() -> None:
     time_stamp = time.time()
@@ -455,10 +459,12 @@ def run_async_tasks(loop: AbstractEventLoop) -> None:
 if __name__ == "__main__":
     logger.info("Initialization...")
 
+    id_generator = IdGenerator()
+
     dpg_wrapper = DpgWrapper()
 
     dpg.create_viewport(**VIEWPORT_OPTIONS)
-    dpg.set_viewport_max_height(MAX_HEIGHT)
+    dpg.set_viewport_max_height(MAX_HEIGHT) #
     dpg.set_viewport_max_width(MAX_WIDTH)
     dpg.set_viewport_min_height(MIN_HEIGHT)
     dpg.set_viewport_min_width(MIN_WIDTH)
@@ -480,13 +486,27 @@ if __name__ == "__main__":
     threading.Thread(target=run_async_tasks, args=(event_loop,), daemon=True).start()
 
     while dpg.is_dearpygui_running():
+        ### Check active id
+        active_identifiers = list(id_generator.active_identifiers)
+        for identifier in active_identifiers:
+            if not dpg.does_item_exist(identifier):
+                id_generator.release_id(identifier)
+        ### Show debug info
         if logger.getEffectiveLevel() == logging.DEBUG:
+            ### FPS
             normal_fps = 60
             fps = dpg.get_frame_rate()
             share = min(fps / normal_fps, 1)
-            dpg.set_value(item=FPS_TEXT_LABEL_ID, value=f"FPS: {fps:.2f}")
-            dpg.configure_item(item=FPS_TEXT_LABEL_ID,
-                color=(255-255*share, 255*share, 0, 255)) 
+            dpg.set_value(item=FPS_DEBUG_TEXT_ID, value=f"FPS: {fps:.2f}")
+            dpg.configure_item(item=FPS_DEBUG_TEXT_ID,
+                color=(255-255*share, 255*share, 0, 255))
+            ### Active ID
+            quentity_active_ids = len(active_identifiers)
+            quentity_free_ids = len(id_generator.free_identifiers)
+            dpg.set_value(
+                item=IDS_DEBUG_TEXT_ID, 
+                value=f"Active IDs: {quentity_active_ids}; Free IDs: {quentity_free_ids}")
+        ### Updating DearPyGui
         dpg_wrapper.update_dpg()
         dpg.render_dearpygui_frame()
 

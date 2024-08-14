@@ -17,6 +17,7 @@ item_types = {
     "image_button": dpg.add_image_button,
     "button": dpg.add_button,
     "text": dpg.add_text,
+    "tooltip": dpg.add_tooltip,
 }
 
 
@@ -28,12 +29,12 @@ class DpgWrapper:
         self.tasks_queue = Queue()
 
     def add_item(self, item_type_: str, **kwargs) -> None:
-        self.tasks_queue.put((ADD_ACTION, item_type_, kwargs))            
+        self.tasks_queue.put((ADD_ACTION, item_type_, kwargs))
 
-    def delete_item(self, item: int, **kwargs) -> None:
+    def delete_item(self, item: int | str, **kwargs) -> None:
         self.tasks_queue.put((DELETE_ACTION, item, kwargs))
 
-    def configure_item(self, item: int, **kwargs) -> None:
+    def configure_item(self, item: int | str, **kwargs) -> None:
         self.tasks_queue.put((CONFIGURE_ACTION, item, kwargs))
 
     def _update_dpg_item(self, action: int, item: str | int, **kwargs) -> None:
@@ -45,11 +46,13 @@ class DpgWrapper:
         elif action == DELETE_ACTION:
             dpg.delete_item(item, **kwargs)
         elif action == CONFIGURE_ACTION:
-            dpg.configure_item(item, **kwargs)
+            try:
+                dpg.configure_item(item, **kwargs)
+            except Exception as e:
+                logger.error(f"Ошибка конфигурирования: {item}\n{str(e)}")
 
     def update_dpg(self) -> None:
         while not self.tasks_queue.empty():
-            logger.debug("Сработала функция update_dpg")
             action, item, kwargs = self.tasks_queue.get()
             self._update_dpg_item(action, item, **kwargs)
 

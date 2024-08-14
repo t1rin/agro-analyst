@@ -1,5 +1,9 @@
 import dearpygui.dearpygui as dpg
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 WINDOW_ID = dpg.generate_uuid()
 
 PREVIEW_TAB_ID = dpg.generate_uuid()
@@ -32,4 +36,26 @@ ANALYSIS_INDICATOR_ID = dpg.generate_uuid()
 BUTTON_SHOW_RESULT = dpg.generate_uuid()
 TEXTURE_SHOW_RESULT = dpg.generate_uuid()
 
-FPS_TEXT_LABEL_ID = dpg.generate_uuid()
+FPS_DEBUG_TEXT_ID = dpg.generate_uuid()
+IDS_DEBUG_TEXT_ID = dpg.generate_uuid()
+
+class IdGenerator:
+    def __init__(self) -> None:
+        self.free_identifiers = set()
+        self.active_identifiers = set()
+
+    def release_id(self, id: int) -> None:
+        self.active_identifiers.discard(id)
+        self.free_identifiers.add(id)
+    
+    def generate_id(self) -> int:
+        if self.free_identifiers:
+            id = self.free_identifiers.pop()
+        else:
+            id = dpg.generate_uuid()
+        self.active_identifiers.add(id)
+        return id
+    
+    def add_active_id(self, id: int) -> None:
+        self.free_identifiers.discard(id)
+        self.active_identifiers.add(id)
