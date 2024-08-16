@@ -12,6 +12,22 @@
 python3 -m venv venv
 ```
 
+Выбираем в IDE созданное виртуальное окружение. Или по команде:
+
+### Linux
+
+```shell
+source ./venv/bin/activate
+```
+
+### Windows
+
+```shell
+venv\Scripts\activate
+```
+
+Загружаем библиотеки:
+
 ```shell
 pip3 install -r requirements.txt
 ```
