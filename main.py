@@ -2,17 +2,10 @@ import asyncio
 import dearpygui.dearpygui as dpg
 
 import threading
+import logging
 import time
 
 from asyncio import AbstractEventLoop
-
-import logging
-
-logging.basicConfig(level=logging.DEBUG,
-                    format='[%(levelname)s][%(asctime)s] - %(name)s - %(message)s',
-                    datefmt='%H:%M:%S')
-
-logger = logging.getLogger(__name__)
 
 dpg.create_context()
 
@@ -27,7 +20,18 @@ from utils import *
 from dpg_wrapper import DpgWrapper
 
 
-analysis_results = {}
+logging.basicConfig(level=logging.DEBUG,
+                    format='[%(levelname)s][%(asctime)s] - %(name)s - %(message)s',
+                    datefmt='%H:%M:%S')
+
+logger = logging.getLogger(__name__)
+
+logging.getLogger("asyncio").setLevel(logging.ERROR)
+
+
+results_and_items = {}
+load_textures_tasks = []
+
 scale = 1
 
 async def check_loop() -> None:
@@ -52,7 +56,7 @@ async def check_images_dir() -> None:
     for name, data in data_images.items():
         img_name = f"./data/images/{name}"
         task.append(asyncio.create_task(image_analysis(img_name, data)))
-    asyncio.gather(*task) # HACK
+    asyncio.gather(*task) # HACK #
 
 async def image_analysis(img_name: str, data: dict) -> None:
     img_exists = await asyncio.to_thread(file_exists, img_name)
@@ -73,7 +77,8 @@ async def image_analysis(img_name: str, data: dict) -> None:
 
     height, width = image.shape[:2]
     texture_data = await asyncio.to_thread(convert_to_texture_data, image.copy())
-    texture = create_texture(width, height, texture_data)
+    texture = id_generator.generate_id()
+    create_texture(width, height, texture_data, tag=texture)
 
     id_generator.add_active_id(texture)
 
@@ -149,98 +154,165 @@ async def save_result(segments: list, data: dict, analysis_data: dict, image) ->
     )
 
 async def check_results_dir() -> None:
-    global analysis_results
+    global results_and_items
     list_res = await asyncio.to_thread(list_dirs, "./data/results")
-    new_results = list(set(list_res) - set(analysis_results.keys()))
+    new_results = list(set(list_res) - set(results_and_items.keys()))
 
     if not new_results:
         return
 
-    await delete_results_textures()
     await load_results_textures(list_res)
 
-async def load_result_texture(result: str, size: int) -> None:
-    global analysis_results, id_generator
-    image = await asyncio.to_thread(load_image, join_path(result, "source.jpeg"))
-    square = await asyncio.to_thread(make_square_image, image, size)
-    texture_data = await asyncio.to_thread(convert_to_texture_data, square)
-    texture = id_generator.generate_id()
-    create_texture(size, size, texture_data, tag=texture)
-    analysis_results[result] = texture
-
-async def load_results_textures(results: list[str]) -> None:
-    global scale
-    size = int(DEFAULT_SIZE_BUTTON * scale)
-
-    load_tasks = [load_result_texture(result, size) 
-                  for result in results]
-    
-    await asyncio.gather(*load_tasks)
-
-    await update_list_results()
-
-async def delete_results_textures() -> None:
-    dpg_wrapper.delete_item(SELECTION_CHILD_ID, children_only=True)
-
-    global analysis_results, id_generator
-    textures = analysis_results.values()
-    for texture in textures:
-        dpg_wrapper.delete_item(texture)
-        id_generator.release_id(texture)
-    analysis_results.clear()
-
-async def update_list_results() -> None:
-    dpg_wrapper.delete_item(SELECTION_CHILD_ID, children_only=True)
-    
-    global analysis_results, scale, id_generator
-    quantity = len(analysis_results)
-    if not quantity:
-        return
-    sorted_results = sorted(analysis_results.items())
-    paths, textures = zip(*sorted_results)
-
-    results = [] # TODO
-    for path in paths:
-        from random import randint 
-        good = randint(0, 4)
-        if good:
-            results.append(("Никаких отклонений от нормы не найдено", good))
-        else:
-            results.append(("Найдены отклонения от нормы!", good)) # TODO
-
+async def get_textures_pos(quantity: int, size: int, min_padding: int) -> list[tuple] | None:
     width, _ = dpg.get_item_rect_size(SELECTION_CHILD_ID)
-    btn_padding = PADDING_BUTTON_SELECTION
-    size_btn = int(DEFAULT_SIZE_BUTTON * scale + btn_padding * 2)
-    min_padding = MIN_PADDING_SELECTION
 
-    columns = width // (size_btn + min_padding)
+    if not width:
+        return
+
+    columns = width // (size + min_padding)
     columns = max(columns, 1)
 
     rows = quantity // columns + (quantity % columns != 0)
 
-    padding = (width - columns * size_btn) / (columns + 1)
+    if columns * rows < quantity:
+        logger.error("quantity больше возможного")
+
+    padding = (width - columns * size) / (columns + 1)
+
+    pos_textures = []
 
     i = 0
     for row in range(rows):
         for column in range(columns):
             if i >= quantity:
                 break
-            image_button_id = id_generator.generate_id()
-            dpg_wrapper.add_item(
-                item_type_="image_button",
-                tag=image_button_id,
-                parent=SELECTION_CHILD_ID,
-                texture_tag=textures[i],
-                callback=show_result,
-                user_data=paths[i],
-                frame_padding=btn_padding,
-                pos=(column*size_btn + (column + 1)*padding,
-                     row*size_btn + (row + 1)*padding))
-            tooltop_id = id_generator.generate_id()
-            dpg_wrapper.add_item(item_type_="tooltip", parent=image_button_id, tag=tooltop_id)
-            status, good = results[i]
-            dpg_wrapper.add_item(item_type_="text", parent=tooltop_id, default_value=status, color=(0, 255, 0) if good else (255, 0, 0))
-            i += 1  
+            pos_textures.append((column*size + (column + 1)*padding,
+                                 row*size + (row + 1)*padding))
+            i += 1
+
+    return pos_textures
+
+async def delete_results_textures() -> None:
+    global load_textures_tasks
+    for task in load_textures_tasks:
+        task.cancel()
+    load_textures_tasks.clear()
+
+    dpg_wrapper.delete_item(SELECTION_CHILD_ID, children_only=True)
+
+    global results_and_items, id_generator
+    for result, items in results_and_items.items():
+        image_button_id, texture_id = items
+        dpg_wrapper.delete_item(texture_id)
+        id_generator.release_id(image_button_id, texture_id)
+        results_and_items[result] = (None, None)
+
+async def load_result_texture(result: str, size: int, btn_padding: int, position: tuple) -> None:
+    global results_and_items, id_generator
+
+    from random import randint # TODO
+    good = randint(0, 4)
+    if good:
+        status = ("Никаких отклонений от нормы не найдено", good)
+    else:
+        status = ("Найдены отклонения от нормы!", good) # TODO
+
+    image = await asyncio.to_thread(load_image, join_path(result, "source.jpeg"))
+    square = await asyncio.to_thread(make_square_image, image, size)
+    texture_data = await asyncio.to_thread(convert_to_texture_data, square)
+    texture_id = create_texture(size, size, texture_data)
+    id_generator.add_active_id(texture_id)
+
+    indicator_id = results_and_items[result][1]
+
+    image_button_id = id_generator.generate_id()
+
+    results_and_items[result] = (image_button_id, texture_id)
+
+    dpg_wrapper.add_item(
+        item_type_="image_button",
+        parent=SELECTION_CHILD_ID,
+        texture_tag=texture_id,
+        callback=show_result,
+        user_data=result,
+        frame_padding=btn_padding,
+        tag=image_button_id,
+        pos=position,
+    )
+
+    tooltop_id = id_generator.generate_id()
+    dpg_wrapper.add_item(item_type_="tooltip", parent=image_button_id, tag=tooltop_id)
+    dpg_wrapper.add_item(item_type_="text", parent=tooltop_id, default_value=status[0], color=(0, 255, 0) if status[1] else (255, 0, 0)) # TODO
+
+    dpg_wrapper.delete_item(indicator_id)
+
+async def load_results_textures(results: list[str]) -> None:
+    await delete_results_textures()
+
+    results.sort()
+
+    global scale, results_and_items, id_generator, load_textures_tasks
+
+    btn_padding = PADDING_BUTTON_SELECTION
+    size_btn = int(DEFAULT_SIZE_BUTTON * scale)
+    size = int(size_btn + btn_padding*2)
+    min_padding = MIN_PADDING_SELECTION
+
+    positions = await get_textures_pos(len(results), size, min_padding)
+    if not positions:
+        results_and_items.clear()
+        return
+    for i, position in enumerate(positions):
+        id = id_generator.generate_id()
+        result = results[i]
+        results_and_items[result] = (None, id)
+        dpg_wrapper.add_item(
+            item_type_="loading_indicator",
+            parent=SELECTION_CHILD_ID,
+            pos=position,
+            radius=3.5*scale,
+            style=1,
+            tag=id,
+        )
+
+        load_textures_tasks.append(
+            asyncio.create_task(load_result_texture(result, size_btn, btn_padding, position))
+        )
+
+    try: await asyncio.gather(*load_textures_tasks)
+    except asyncio.CancelledError: pass
+
+async def update_list_results() -> None:
+    global load_textures_tasks
+
+    def tasks_is_done(tasks) -> bool:
+        return all(task.done() for task in tasks)
+
+    if not tasks_is_done(load_textures_tasks):
+        time_stamp = time.time()
+        while time.time() - time_stamp < 3:
+            await asyncio.sleep(0.1)
+            if tasks_is_done(load_textures_tasks):
+                break
+        else:
+            return
+
+    global results_and_items
+
+    if not results_and_items:
+        return
+
+    buttons, _ = zip(*results_and_items.values())
+
+    btn_padding = PADDING_BUTTON_SELECTION
+    size_btn = int(DEFAULT_SIZE_BUTTON * scale)
+    size = int(size_btn + btn_padding*2)
+    min_padding = MIN_PADDING_SELECTION
+
+    positions = await get_textures_pos(len(buttons), size, min_padding)
+                  
+    for i, position in enumerate(positions):
+        dpg_wrapper.configure_item(buttons[i], pos=position)
 
 def change_tab_callback(_, __, widget_id: int) -> None:
     asyncio.run(change_tab(widget_id))
@@ -258,14 +330,25 @@ def simple_preview_callback(_, __) -> None:
         else "Выбран стандартный режим просмотра"
     )
 
-def scale_callback(sender: int, __) -> None:
-    global scale
-    scale = dpg.get_value(sender)
+def scale_callback(_, __, action: str) -> None:
+    scale_factors = {"--": 0.2, "-": 0.8, "+": 1.2, "++": 1.8}
 
-    global analysis_results
-    results = list(analysis_results.keys())
-    asyncio.run(delete_results_textures())
+    global scale
+    scale *= scale_factors[action]
+
+    scale = min(scale, 10)
+    scale = max(scale, 0.2)
+
+    results = list_dirs("./data/results")
+
+    dpg.set_value(SCALE_TEXT_ID, f"{scale:.2f}")
+
     asyncio.run(load_results_textures(results))
+
+def run_func_debug() -> None:
+    logger.debug("Отладочная функция запущена")
+    # results = list_dirs("./data/results")
+    # asyncio.run(load_results_textures(results))
 
 def show_result(_, __, result_path: str) -> None:
     logger.debug(f"Путь к выбранному результату: {result_path}")
@@ -322,7 +405,7 @@ async def change_tab(widget_id: int) -> None:
                 VIEWER_TAB_ID: VIEWER_TAB_BUTTON_ID}
     dpg.bind_item_theme(replaces[widget_id], active_tab_button_theme)
 
-    await delete_results_textures()
+    # await update_list_results()
 
     await update_menu_bar()
 
@@ -357,8 +440,14 @@ async def create_menu_bar() -> None:
             dpg.add_menu_item(label=MENU_BAR["options"]["simple_preview"], default_value=DEFAULT_SIMPLE_PREVIEW,
                 callback=simple_preview_callback, check=True, tag=SIMPLE_PREVIEW_MENU_ITEM_ID)
             dpg.add_menu(label=MENU_BAR["options"]["scale"], tag=SCALE_MENU_ITEM_ID, show=False)
-            dpg.add_slider_float(parent=dpg.last_item(), callback=scale_callback,
-                min_value=0.2, max_value=10, default_value=1, width=30, format="%.1f", vertical=True)
+            with dpg.group(parent=dpg.last_item(), horizontal=True):
+                dpg.add_button(label="<<", callback=scale_callback, user_data="--")
+                dpg.add_button(label="<", callback=scale_callback, user_data="-")
+                dpg.add_text("1", tag=SCALE_TEXT_ID)
+                dpg.add_button(label=">", callback=scale_callback, user_data="+")
+                dpg.add_button(label=">>", callback=scale_callback, user_data="++")
+            # dpg.add_slider_float(parent=dpg.last_item(), callback=scale_callback,
+            #     min_value=0.2, max_value=10, default_value=1, width=30, format="%.1f", vertical=True)
 
 async def create_tab_bar() -> None:
     with dpg.child_window(autosize_x=True, show=SHOW_TAB_BAR, height=46): # HACK
@@ -372,8 +461,10 @@ async def create_tab_bar() -> None:
             dpg.add_button(label=MENU_BAR["view"]["viewer"], 
                 callback=change_tab_callback, user_data=VIEWER_TAB_ID,
                 tag=VIEWER_TAB_BUTTON_ID)
-            dpg.add_text(tag=FPS_DEBUG_TEXT_ID)
-            dpg.add_text(tag=IDS_DEBUG_TEXT_ID)
+            if logger.getEffectiveLevel() == logging.DEBUG:
+                dpg.add_button(label="RUN FUNC", callback=run_func_debug)
+                dpg.add_text(tag=FPS_DEBUG_TEXT_ID)
+                dpg.add_text(tag=IDS_DEBUG_TEXT_ID)
 
 async def init_interface() -> None:
     time_stamp = time.time()
@@ -501,11 +592,11 @@ if __name__ == "__main__":
             dpg.configure_item(item=FPS_DEBUG_TEXT_ID,
                 color=(255-255*share, 255*share, 0, 255))
             ### Active ID
-            quentity_active_ids = len(active_identifiers)
-            quentity_free_ids = len(id_generator.free_identifiers)
+            quantity_active_ids = len(active_identifiers)
+            quantity_free_ids = len(id_generator.free_identifiers)
             dpg.set_value(
                 item=IDS_DEBUG_TEXT_ID, 
-                value=f"Active IDs: {quentity_active_ids}; Free IDs: {quentity_free_ids}")
+                value=f"All IDs: {quantity_active_ids + quantity_free_ids}; Active IDs: {quantity_active_ids}; Free IDs: {quantity_free_ids}")
         ### Updating DearPyGui
         dpg_wrapper.update_dpg()
         dpg.render_dearpygui_frame()

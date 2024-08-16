@@ -20,6 +20,8 @@ VIEWER_MENU_ITEM_ID = dpg.generate_uuid()
 SIMPLE_PREVIEW_MENU_ITEM_ID = dpg.generate_uuid()
 SCALE_MENU_ITEM_ID = dpg.generate_uuid()
 
+SCALE_TEXT_ID = dpg.generate_uuid()
+
 SELECTION_CHILD_ID = dpg.generate_uuid()
 
 PREVIEW_PLOT_ID = dpg.generate_uuid()
@@ -44,12 +46,12 @@ class IdGenerator:
         self.free_identifiers = set()
         self.active_identifiers = set()
 
-    def release_id(self, id: int) -> None:
-        self.active_identifiers.discard(id)
-        self.free_identifiers.add(id)
+    def release_id(self, *ids: int) -> None:
+        self.active_identifiers.difference_update(ids)
+        self.free_identifiers.update(ids)
     
     def generate_id(self) -> int:
-        if self.free_identifiers:
+        if 0:#self.free_identifiers: # FIX
             id = self.free_identifiers.pop()
         else:
             id = dpg.generate_uuid()

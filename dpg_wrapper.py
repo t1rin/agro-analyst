@@ -18,6 +18,7 @@ item_types = {
     "button": dpg.add_button,
     "text": dpg.add_text,
     "tooltip": dpg.add_tooltip,
+    "loading_indicator": dpg.add_loading_indicator,
 }
 
 
@@ -44,7 +45,10 @@ class DpgWrapper:
             else:
                 logger.error(f"Не найден тип элемента: {item}")
         elif action == DELETE_ACTION:
-            dpg.delete_item(item, **kwargs)
+            try:
+                dpg.delete_item(item, **kwargs)
+            except SystemError:
+                logger.error(f"Ошибка удаления: {item}")
         elif action == CONFIGURE_ACTION:
             try:
                 dpg.configure_item(item, **kwargs)
@@ -52,7 +56,10 @@ class DpgWrapper:
                 logger.error(f"Ошибка конфигурирования: {item}\n{str(e)}")
 
     def update_dpg(self) -> None:
-        while not self.tasks_queue.empty():
-            action, item, kwargs = self.tasks_queue.get()
-            self._update_dpg_item(action, item, **kwargs)
+        try:
+            while not self.tasks_queue.empty():
+                action, item, kwargs = self.tasks_queue.get()
+                self._update_dpg_item(action, item, **kwargs)
+        except Exception as e:
+            logger.error(f"Ошибка обработки очереди: {str(e)}")
 

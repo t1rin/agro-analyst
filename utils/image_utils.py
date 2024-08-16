@@ -1,10 +1,13 @@
 import cv2
+import logging
 import numpy as np
 
 from dearpygui.dearpygui import texture_registry, add_static_texture
 
 from cv2.typing import MatLike
 from numpy.typing import NDArray
+
+logger = logging.getLogger(__name__)
 
 
 def load_image(src: str) -> MatLike:
@@ -14,6 +17,8 @@ def image_record(path: str, img: MatLike) -> None:
     cv2.imwrite(path, img)
 
 def make_square_image(img: MatLike, size: int) -> MatLike:
+    if not isinstance(size, int):
+        logger.error(f"size не целочисленное! ({size=})")
     img_np = np.array(img)
     height, width = img_np.shape[:2]
     size_ = min(height, width)

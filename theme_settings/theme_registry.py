@@ -7,6 +7,7 @@ with dpg.theme() as global_theme:
         dpg.add_theme_style(dpg.mvStyleVar_CellPadding, 6, 6, category=dpg.mvThemeCat_Core)
         dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 8, 10, category=dpg.mvThemeCat_Core)
         dpg.add_theme_style(dpg.mvStyleVar_ItemInnerSpacing, 8, 8, category=dpg.mvThemeCat_Core)
+        dpg.add_theme_style(dpg.mvStyleVar_ScrollbarSize, 14, category=dpg.mvThemeCat_Core)
 
         dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (16, 16, 16), category=dpg.mvThemeCat_Core)
         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (50, 50, 55), category=dpg.mvThemeCat_Core)
