@@ -4,6 +4,10 @@ VIEWPORT_OPTIONS = {
     "title": "АгроАналитик",
     "height": 600,
     "width": 800,
+    "max_width": -1,
+    "min_width": -1,
+    "max_height": -1,
+    "min_height": -1,
 }
 
 MENU_BAR = {
@@ -25,12 +29,7 @@ MENU_BAR = {
     }
 }
 
-MAX_HEIGHT = -1
-MAX_WIDTH = -1
-MIN_HEIGHT = -1
-MIN_WIDTH = -1
-
-UPDATING_RATE = 30
+UPDATING_RATE = 16
 
 DEFAULT_PANEL_WIDTH = 250
 

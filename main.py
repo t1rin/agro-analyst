@@ -20,7 +20,7 @@ from utils import *
 from dpg_wrapper import DpgWrapper
 
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                     format='[%(levelname)s][%(asctime)s] - %(name)s - %(message)s',
                     datefmt='%H:%M:%S')
 
@@ -160,6 +160,8 @@ async def check_results_dir() -> None:
 
     if not new_results:
         return
+
+    dpg.set_value(COUNTER_TAB_TEXT_ID, f"Снимков: {len(list_res)}")
 
     await load_results_textures(list_res)
 
@@ -331,17 +333,17 @@ def simple_preview_callback(_, __) -> None:
     )
 
 def scale_callback(_, __, action: str) -> None:
-    scale_factors = {"--": 0.2, "-": 0.8, "+": 1.2, "++": 1.8}
+    scale_delta = {"--": -1, "-": -0.1, "+": +0.1, "++": +1}
 
     global scale
-    scale *= scale_factors[action]
+    scale += scale_delta[action]
 
     scale = min(scale, 10)
     scale = max(scale, 0.2)
 
     results = list_dirs("./data/results")
 
-    dpg.set_value(SCALE_TEXT_ID, f"{scale:.2f}")
+    dpg.set_value(SCALE_TEXT_ID, f"{scale:.1f}")
 
     asyncio.run(load_results_textures(results))
 
@@ -461,6 +463,7 @@ async def create_tab_bar() -> None:
             dpg.add_button(label=MENU_BAR["view"]["viewer"], 
                 callback=change_tab_callback, user_data=VIEWER_TAB_ID,
                 tag=VIEWER_TAB_BUTTON_ID)
+            dpg.add_text(tag=COUNTER_TAB_TEXT_ID)
             if logger.getEffectiveLevel() == logging.DEBUG:
                 dpg.add_button(label="RUN FUNC", callback=run_func_debug)
                 dpg.add_text(tag=FPS_DEBUG_TEXT_ID)
@@ -555,10 +558,6 @@ if __name__ == "__main__":
     dpg_wrapper = DpgWrapper()
 
     dpg.create_viewport(**VIEWPORT_OPTIONS)
-    dpg.set_viewport_max_height(MAX_HEIGHT) #
-    dpg.set_viewport_max_width(MAX_WIDTH)
-    dpg.set_viewport_min_height(MIN_HEIGHT)
-    dpg.set_viewport_min_width(MIN_WIDTH)
 
     dpg.bind_theme(global_theme)
     dpg.bind_font(global_font)

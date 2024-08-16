@@ -13,6 +13,7 @@ VIEWER_TAB_ID = dpg.generate_uuid()
 PREVIEW_TAB_BUTTON_ID = dpg.generate_uuid()
 SELECTION_TAB_BUTTON_ID = dpg.generate_uuid()
 VIEWER_TAB_BUTTON_ID = dpg.generate_uuid()
+COUNTER_TAB_TEXT_ID = dpg.generate_uuid()
 
 PREVIEW_MENU_ITEM_ID = dpg.generate_uuid()
 SELECTION_MENU_ITEM_ID = dpg.generate_uuid()
