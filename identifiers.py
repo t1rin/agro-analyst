@@ -5,6 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 WINDOW_ID = dpg.generate_uuid()
+ABOUT_WINDOW_ID = dpg.generate_uuid()
 
 PREVIEW_TAB_ID = dpg.generate_uuid()
 SELECTION_TAB_ID = dpg.generate_uuid()

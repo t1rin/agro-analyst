@@ -2,6 +2,7 @@ import asyncio
 import dearpygui.dearpygui as dpg
 
 import threading
+import webbrowser
 import logging
 import time
 
@@ -380,6 +381,12 @@ def show_result(_, __, result_path: str) -> None:
     change_tab_callback(None, None, VIEWER_TAB_ID)
 
 def resize_callback(_, __) -> None:
+    viewport_width = dpg.get_viewport_width()
+    viewport_height = dpg.get_viewport_height()
+    width, height = WIDTH_ABOUT_WINDOW, HEIGHT_ABOUT_WINDOW
+
+    dpg.configure_item(item=ABOUT_WINDOW_ID, pos=((viewport_width - width) / 2, (viewport_height - height) / 2))
+
     asyncio.run(update_list_results())
 
 def close_all_on_exit() -> None:
@@ -410,6 +417,16 @@ async def change_tab(widget_id: int) -> None:
     # await update_list_results()
 
     await update_menu_bar()
+
+async def create_about_window() -> None:
+    viewport_width = VIEWPORT_OPTIONS["width"]
+    viewport_height = VIEWPORT_OPTIONS["height"]
+    width, height = WIDTH_ABOUT_WINDOW, HEIGHT_ABOUT_WINDOW
+    with dpg.window(tag=ABOUT_WINDOW_ID, width=width, height=height, show=False, pos=((viewport_width - width) / 2, (viewport_height - height) / 2), modal=True, no_title_bar=True, no_resize=True, no_move=True):
+        dpg.add_text(TEXT_ABOUT_INFO, indent=6, wrap=0)
+        dpg.bind_item_font(dpg.last_item(), about_font)
+        width_btn, height_btn, padding = 80, 30, 20
+        dpg.add_button(label="Close", width=width_btn, height=height_btn, pos=((width - width_btn - padding), (height - height_btn - padding)), callback=lambda: dpg.configure_item(ABOUT_WINDOW_ID, show=False))
 
 async def update_menu_bar() -> None:
     main_tab_is_shown = dpg.is_item_shown(PREVIEW_TAB_ID)
@@ -448,8 +465,10 @@ async def create_menu_bar() -> None:
                 dpg.add_text("1", tag=SCALE_TEXT_ID)
                 dpg.add_button(label=">", callback=scale_callback, user_data="+")
                 dpg.add_button(label=">>", callback=scale_callback, user_data="++")
-            # dpg.add_slider_float(parent=dpg.last_item(), callback=scale_callback,
-            #     min_value=0.2, max_value=10, default_value=1, width=30, format="%.1f", vertical=True)
+        with dpg.menu(label=MENU_BAR["menus"]["help"]):
+            dpg.bind_item_font(dpg.last_item(), menu_font)
+            dpg.add_menu_item(label=MENU_BAR["help"]["about"], callback=lambda: dpg.configure_item(ABOUT_WINDOW_ID, show=True))
+            dpg.add_menu_item(label=MENU_BAR["help"]["github"], callback=lambda: webbrowser.open("https://github.com/t1rin/agro-analyst"))
 
 async def create_tab_bar() -> None:
     with dpg.child_window(autosize_x=True, show=SHOW_TAB_BAR, height=46): # HACK
@@ -540,6 +559,8 @@ async def init_interface() -> None:
         
         # dpg.delete_item(TAB_BAR_ID) # TODO: показ вверху или внизу
         # create_tab_bar()
+
+    await create_about_window()
 
     await change_tab(PREVIEW_TAB_ID)
 

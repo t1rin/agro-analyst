@@ -13,7 +13,8 @@ VIEWPORT_OPTIONS = {
 MENU_BAR = {
     "menus": {
         "view": "Вид",
-        "options": "Опции"
+        "options": "Опции",
+        "help": "Справка",
     },
 
     "view": {
@@ -26,8 +27,16 @@ MENU_BAR = {
     "options": {
         "simple_preview": "Простой просмотр",
         "scale": "Mасштаб"
+    },
+    
+    "help": {
+        "about": "О программе",
+        "github": "GitHub"
     }
 }
+
+WIDTH_ABOUT_WINDOW = 300
+HEIGHT_ABOUT_WINDOW = 200
 
 UPDATING_RATE = 16
 

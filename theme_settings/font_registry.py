@@ -9,3 +9,6 @@ with dpg.font_registry():
 
     with dpg.font(menu_font_path, size=14) as menu_font:
         dpg.add_font_range_hint(dpg.mvFontRangeHint_Cyrillic)
+
+    with dpg.font(menu_font_path, size=18) as about_font:
+        dpg.add_font_range_hint(dpg.mvFontRangeHint_Cyrillic)
