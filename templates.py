@@ -16,6 +16,11 @@ TEXT_DATA_PANEL = (
     " . . . "
 )
 
+TEXT_STATUS_PANEL = (
+    "Классификация:\n"
+    "\t{classification}\n"
+)
+
 class NoneDict(dict):
     def __missing__(self, key) -> None:
         return None

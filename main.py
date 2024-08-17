@@ -3,8 +3,15 @@ import dearpygui.dearpygui as dpg
 
 import threading
 import webbrowser
-import logging
 import time
+
+import logging
+
+logging.basicConfig(level=logging.INFO,
+                    format='[%(levelname)s][%(asctime)s] - %(name)s - %(message)s',
+                    datefmt='%H:%M:%S')
+
+logging.getLogger("asyncio").setLevel(logging.ERROR)
 
 from asyncio import AbstractEventLoop
 
@@ -21,14 +28,7 @@ from utils import *
 from dpg_wrapper import DpgWrapper
 
 
-logging.basicConfig(level=logging.INFO,
-                    format='[%(levelname)s][%(asctime)s] - %(name)s - %(message)s',
-                    datefmt='%H:%M:%S')
-
 logger = logging.getLogger(__name__)
-
-logging.getLogger("asyncio").setLevel(logging.ERROR)
-
 
 results_and_items = {}
 load_textures_tasks = []
@@ -113,28 +113,18 @@ async def image_analysis(img_name: str, data: dict) -> None:
     segments = await asyncio.to_thread(segmentation, image)
     logger.debug(f"Время сегментирования {(time.time() - stamp):.2f} сек")
 
-    analysis_data = {} # TODO
+    stamp = time.time()
+    classification_ = await asyncio.to_thread(classification, image)
+    logger.debug(f"Время классификации {(time.time() - stamp):.2f} сек")
+
+    analysis_data = {
+        "classification": classification_,
+    }
 
     # for i in range(len(segments)):
     #     analysis_data[i] = ...
 
-    await save_result(segments, data, analysis_data, image)
-
-async def save_result(segments: list, data: dict, analysis_data: dict, image) -> None:
-    path = f"./data/results/{int(time.time())}"
-
-    await asyncio.to_thread(makedir, path)
-
-    save_tasks = [
-        asyncio.to_thread(image_record, join_path(path, "source.jpeg"), image),
-        asyncio.to_thread(json_write, join_path(path, "source_data.json"), data),
-        asyncio.to_thread(json_write, join_path(path, "analysis_data.json"), analysis_data),
-    ]
-
-    for i, segment in enumerate(segments):
-        save_tasks.append(asyncio.to_thread(image_record, join_path(path, f"{i}.jpeg"), segment))
-
-    await asyncio.gather(*save_tasks)    
+    path = await save_results(segments, data, analysis_data, image)
 
     logger.info(f"Обработан и сохранён {path}")
 
@@ -153,6 +143,24 @@ async def save_result(segments: list, data: dict, analysis_data: dict, image) ->
         user_data=path,
         show=True,
     )
+
+async def save_results(segments: list, data: dict, analysis_data: dict, image: MatLike) -> int:
+    path = f"./data/results/{int(time.time())}"
+
+    await asyncio.to_thread(makedir, path)
+
+    save_tasks = [
+        asyncio.to_thread(image_record, join_path(path, "source.jpeg"), image),
+        asyncio.to_thread(json_write, join_path(path, "source_data.json"), data),
+        asyncio.to_thread(json_write, join_path(path, "analysis_data.json"), analysis_data),
+    ]
+
+    for i, segment in enumerate(segments):
+        save_tasks.append(asyncio.to_thread(image_record, join_path(path, f"{i}.jpeg"), segment))
+
+    await asyncio.gather(*save_tasks)
+
+    return path
 
 async def check_results_dir() -> None:
     global results_and_items
@@ -213,14 +221,10 @@ async def delete_results_textures() -> None:
 async def load_result_texture(result: str, size: int, btn_padding: int, position: tuple) -> None:
     global results_and_items, id_generator
 
-    from random import randint # TODO
-    good = randint(0, 4)
-    if good:
-        status = ("Никаких отклонений от нормы не найдено", good)
-    else:
-        status = ("Найдены отклонения от нормы!", good) # TODO
-
     image = await asyncio.to_thread(load_image, join_path(result, "source.jpeg"))
+    analysis_data = await asyncio.to_thread(json_read, join_path(result, "analysis_data.json"))
+    analysis_data = NoneDict(analysis_data)
+
     square = await asyncio.to_thread(make_square_image, image, size)
     texture_data = await asyncio.to_thread(convert_to_texture_data, square)
     texture_id = create_texture(size, size, texture_data)
@@ -243,9 +247,11 @@ async def load_result_texture(result: str, size: int, btn_padding: int, position
         pos=position,
     )
 
+    status = analysis_data["classification"]
+
     tooltop_id = id_generator.generate_id()
     dpg_wrapper.add_item(item_type_="tooltip", parent=image_button_id, tag=tooltop_id)
-    dpg_wrapper.add_item(item_type_="text", parent=tooltop_id, default_value=status[0], color=(0, 255, 0) if status[1] else (255, 0, 0)) # TODO
+    dpg_wrapper.add_item(item_type_="text", parent=tooltop_id, default_value=status)
 
     dpg_wrapper.delete_item(indicator_id)
 
@@ -355,12 +361,21 @@ def run_func_debug() -> None:
 
 def show_result(_, __, result_path: str) -> None:
     logger.debug(f"Путь к выбранному результату: {result_path}")
+
     name_source_data = join_path(result_path, "source_data.json")
     source_data = json_read(name_source_data)
+
+    name_analysis_data = join_path(result_path, "analysis_data.json")
+    analysis_data = json_read(name_analysis_data)
 
     dpg.set_value(
         VIEWER_TEXT_INFO_ID,
         format_text(TEXT_INFO_PANEL, source_data),
+    )
+
+    dpg.set_value(
+        VIEWER_TEXT_STATUS_ID,
+        format_text(TEXT_STATUS_PANEL, analysis_data)
     )
 
     name_source_img = join_path(result_path, "source.jpeg")
@@ -544,7 +559,8 @@ async def init_interface() -> None:
                                 dpg.add_text(format_text(TEXT_DATA_PANEL), 
                                     tag=VIEWER_TEXT_DATA_ID, indent=8, wrap=0)
                             with dpg.collapsing_header(label="Статус", default_open=True):
-                                ...
+                                dpg.add_text(format_text(TEXT_STATUS_PANEL), 
+                                    tag=VIEWER_TEXT_STATUS_ID, indent=8, wrap=0)
                         with dpg.child_window():
                             with dpg.plot(width=-1, height=-1, equal_aspects=True, 
                                           no_mouse_pos=True, no_menus=True):

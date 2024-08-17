@@ -35,6 +35,7 @@ VIEWER_IMAGE_ID = dpg.generate_uuid()
 PREVIEW_TEXT_INFO_ID = dpg.generate_uuid()
 VIEWER_TEXT_INFO_ID = dpg.generate_uuid()
 VIEWER_TEXT_DATA_ID = dpg.generate_uuid()
+VIEWER_TEXT_STATUS_ID = dpg.generate_uuid()
 
 ANALYSIS_INDICATOR_ID = dpg.generate_uuid()
 BUTTON_SHOW_RESULT = dpg.generate_uuid()

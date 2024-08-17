@@ -57,3 +57,6 @@ def makedir(path: str) -> None:
 
 def join_path(path: str, *names: str) -> str:
     return os.path.join(path, *names)
+
+def parent_dir(path: str) -> str:
+    return os.path.dirname(os.path.abspath(path))
