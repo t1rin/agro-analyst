@@ -6,6 +6,7 @@ from utils.image_utils import (
     make_square_image, 
     create_texture, 
     image_record,
+    image_exists,
 )
 
 from utils.files_utils import (
@@ -19,6 +20,7 @@ from utils.file_utils import (
     file_read,
     file_write,
     file_delete,
+    path_basename,
     dir_exists,
     json_read,
     json_write,

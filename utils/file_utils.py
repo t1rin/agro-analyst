@@ -36,6 +36,9 @@ def file_delete(file: str) -> None:
     if file_exists(file):
         os.remove(file)
 
+def path_basename(abs_path: str) -> None:
+    return os.path.basename(abs_path)
+
 def dir_exists(dir: str) -> bool:
     _check_file_structure()
     return os.path.isdir(dir)

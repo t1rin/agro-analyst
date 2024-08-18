@@ -4,6 +4,14 @@ TEXT_ABOUT_INFO = (
     "Проект в разработке...\n"
 )
 
+TEXT_SENSORS_PANEL = (
+    "Координаты:\n"
+    "\tGLOBAL: ({x}, {y})\n"
+    "\tLOCAL X: {localx}\n"
+    "\tLOCAL Y: {localy}\n"
+    "\tLOCAL Z: {localz}\n"
+)
+
 TEXT_INFO_PANEL = (
     "Снимок сделан {time}\n"
     "\n"

@@ -16,6 +16,13 @@ def load_image(src: str) -> MatLike:
 def image_record(path: str, img: MatLike) -> None:
     cv2.imwrite(path, img)
 
+def image_exists(file: str) -> bool:
+    try:
+        img = load_image(file)
+        return (img is not None)
+    except:
+        return False
+
 def make_square_image(img: MatLike, size: int) -> MatLike:
     if not isinstance(size, int):
         logger.error(f"size не целочисленное! ({size=})")

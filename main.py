@@ -46,66 +46,80 @@ async def check_loop() -> None:
         await asyncio.sleep(interval)
 
 async def check_images_dir() -> None:
+    # load .json
     images_json_file = "./data/images/images.json"
     data_images = await asyncio.to_thread(json_read, images_json_file)
 
+    # show image
+    list_images = await asyncio.to_thread(list_files, "./data/images")
+    for image in list_images:
+        img_exists = await asyncio.to_thread(image_exists, image)
+        if not img_exists:
+            continue
+        await show_image(image)
+        if path_basename(image).startswith('_'):
+            await asyncio.to_thread(file_delete, image)
+
+    # image analysis
     if not data_images:
         if data_images is None:
             await asyncio.to_thread(json_write, images_json_file)
         return
     
-    name, data = list(data_images.items())[0]
-    del data_images[name]
+    await asyncio.to_thread(json_write, images_json_file)
 
-    await asyncio.to_thread(json_write, images_json_file, data_images)
+    for name, data in data_images.items():
+        img_name = f"./data/images/{name}"
 
-    img_name = f"./data/images/{name}"
-    asyncio.create_task(image_analysis(img_name, data))
-
-async def image_analysis(img_name: str, data: dict) -> None:
-    img_exists = await asyncio.to_thread(file_exists, img_name)
-    if not img_exists:
-        stamp = time.time()
-        while time.time() - stamp < 3:
-            await asyncio.sleep(0.1)
-        if not (await asyncio.to_thread(file_exists, img_name)):
+        img_exists = await asyncio.to_thread(image_exists, img_name)
+        if not img_exists:
             logger.warning(f"Не найден снимок {img_name}")
-            return
-    
+            continue
+        
+        image = await asyncio.to_thread(load_image, img_name)
+        await asyncio.to_thread(file_delete, img_name)
+        
+        asyncio.create_task(image_analysis(image, img_name, data))
+
+async def show_image(img_name: str) -> None:
     global dpg_wrapper, id_generator
 
-    logger.info(f"Найден новый снимок {img_name}")
+    img_exists = await asyncio.to_thread(image_exists, img_name)
+    if not img_exists:
+        return
+    img_basename = path_basename(img_name)
+    print(img_basename)
+    if img_basename.startswith('_'):
+        base_name = ".".join(img_basename.split(".")[:-1])
+        keys = base_name.split("_")[1::2]
+        values = base_name.split("_")[2::2]
+        data = dict(zip(keys, values))
+    else: data = None
 
     image = await asyncio.to_thread(load_image, img_name)
-    await asyncio.to_thread(file_delete, img_name)
-
     height, width = image.shape[:2]
-    texture_data = await asyncio.to_thread(convert_to_texture_data, image.copy())
-    texture = id_generator.generate_id()
-    create_texture(width, height, texture_data, tag=texture)
 
-    id_generator.add_active_id(texture)
+    if dpg.does_item_exist(TEXTURE_SHOW_IMAGE):
+        dpg.delete_item(TEXTURE_SHOW_IMAGE)
+
+    texture_data = await asyncio.to_thread(convert_to_texture_data, image.copy())
+    create_texture(width, height, texture_data, tag=TEXTURE_SHOW_IMAGE)
 
     dpg_wrapper.configure_item(
         item=PREVIEW_IMAGE1_ID, 
-        texture_tag=texture, 
+        texture_tag=TEXTURE_SHOW_IMAGE, 
         bounds_min=[0, 0], 
         bounds_max=[width, height]
     )
 
-    dpg_wrapper.configure_item(PREVIEW_IMAGE2_ID, texture_tag=texture)
+    dpg_wrapper.configure_item(PREVIEW_IMAGE2_ID, texture_tag=TEXTURE_SHOW_IMAGE)
 
-    data = NoneDict(data)
-    time_ = data["time"]
-    if time_:
-        data["time"] = seconds_to_str(time_)
-    data["width"] = width
-    data["height"] = height
+    if data: dpg.set_value(PREVIEW_TEXT_SENSORS_ID, format_text(TEXT_SENSORS_PANEL, data))
 
-    dpg.set_value(
-        PREVIEW_TEXT_INFO_ID,
-        format_text(TEXT_INFO_PANEL, data),
-    )
+async def image_analysis(image: MatLike, img_name: str, data: dict) -> None:
+    global dpg_wrapper
+    
+    logger.info(f"Найден новый снимок для анализа {img_name}")
 
     dpg_wrapper.configure_item(ANALYSIS_INDICATOR_ID, show=True)
     dpg_wrapper.configure_item(BUTTON_SHOW_RESULT, show=False)
@@ -138,7 +152,7 @@ async def image_analysis(img_name: str, data: dict) -> None:
     dpg_wrapper.configure_item(ANALYSIS_INDICATOR_ID, show=False)
 
     texture = TEXTURE_SHOW_RESULT
-    dpg_wrapper.delete_item(texture)
+    dpg_wrapper.delete_item(texture) # FIXME
 
     size = DEFAULT_SIZE_BUTTON
     square = await asyncio.to_thread(make_square_image, image, size)
@@ -230,6 +244,13 @@ async def delete_results_textures() -> None:
         results_and_items[result] = (None, None)
 
 async def load_result_texture(result: str, size: int, btn_padding: int, position: tuple) -> None:
+    names = ["source.jpeg", "analysis_data.json"]
+    for name in names:
+        file_name = join_path(result, name)
+        if not file_exists(file_name):
+            logger.error(f"Файл {name} не найден в папке {result}")
+            return
+    
     global results_and_items, id_generator
 
     image = await asyncio.to_thread(load_image, join_path(result, "source.jpeg"))
@@ -541,10 +562,9 @@ async def init_interface() -> None:
                                 show=DEFAULT_SIMPLE_PREVIEW
                             )
                         with dpg.child_window():
-
                             with dpg.collapsing_header(label="Данные", default_open=True):
-                                dpg.add_text(format_text(TEXT_INFO_PANEL), 
-                                    tag=PREVIEW_TEXT_INFO_ID, indent=8, wrap=0)
+                                dpg.add_text(format_text(TEXT_SENSORS_PANEL), 
+                                    tag=PREVIEW_TEXT_SENSORS_ID, indent=8, wrap=0)
                             with dpg.collapsing_header(label="Анализ", default_open=True):
                                 with dpg.group(horizontal=True):
                                     dpg.add_loading_indicator(tag=ANALYSIS_INDICATOR_ID, show=False)
