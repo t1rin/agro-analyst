@@ -32,6 +32,7 @@ PREVIEW_IMAGE1_ID = dpg.generate_uuid()
 PREVIEW_IMAGE2_ID = dpg.generate_uuid()
 VIEWER_IMAGE_ID = dpg.generate_uuid()
 
+PREVIEW_TEXT_TIME_ID = dpg.generate_uuid()
 PREVIEW_TEXT_SENSORS_ID = dpg.generate_uuid()
 VIEWER_TEXT_INFO_ID = dpg.generate_uuid()
 VIEWER_TEXT_DATA_ID = dpg.generate_uuid()

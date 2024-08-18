@@ -38,6 +38,8 @@ load_textures_tasks = []
 
 scale = 1
 
+_enabled_fullscreen = False
+
 async def check_loop() -> None:
     interval = 1 / UPDATING_RATE
     while True:
@@ -293,9 +295,10 @@ async def load_result_texture(result: str, size: int, btn_padding: int, position
 
     status = analysis_data["classification"]
 
-    tooltop_id = id_generator.generate_id()
-    dpg_wrapper.add_item(item_type_="tooltip", parent=image_button_id, tag=tooltop_id)
-    dpg_wrapper.add_item(item_type_="text", parent=tooltop_id, default_value=status)
+    tooltip_id = id_generator.generate_id()
+    dpg_wrapper.add_item(item_type_="tooltip", parent=image_button_id, tag=tooltip_id)
+    dpg_wrapper.dpg_command(dpg.bind_item_font, item=tooltip_id, font=tooltip_font)
+    dpg_wrapper.add_item(item_type_="text", parent=tooltip_id, default_value=status)
 
     dpg_wrapper.delete_item(indicator_id)
 
@@ -371,8 +374,11 @@ def change_tab_callback(_, __, widget_id: int) -> None:
     asyncio.run(change_tab(widget_id))
 
 def fullscreen_callback(sender: int, __) -> None:
-    dpg.toggle_viewport_fullscreen() # TODO
-    logger.info("Кнопка " + MENU_BAR["view"]["full_screen"] + " была активирована")
+    global _enabled_fullscreen
+    dpg.toggle_viewport_fullscreen()
+    _enabled_fullscreen = not _enabled_fullscreen
+    dpg.configure_item(PREVIEW_TEXT_TIME_ID, show=_enabled_fullscreen)
+    logger.info(("Включен" if _enabled_fullscreen else "Выключен") + " полноэкранный режим")
 
 def simple_preview_callback(_, __) -> None:
     simple_preview = dpg.get_value(SIMPLE_PREVIEW_MENU_ITEM_ID)
@@ -533,6 +539,8 @@ async def create_menu_bar() -> None:
 async def create_tab_bar() -> None:
     with dpg.child_window(autosize_x=True, show=SHOW_TAB_BAR, height=46): # HACK
         with dpg.group(horizontal=True):
+            dpg.add_text(tag=PREVIEW_TEXT_TIME_ID, show=False)
+            dpg.bind_item_font(dpg.last_item(), time_font)
             dpg.add_button(label=MENU_BAR["view"]["preview"], 
                 callback=change_tab_callback, user_data=PREVIEW_TAB_ID,
                 tag=PREVIEW_TAB_BUTTON_ID)
@@ -663,6 +671,11 @@ if __name__ == "__main__":
         for identifier in active_identifiers:
             if not dpg.does_item_exist(identifier):
                 id_generator.release_id(identifier)
+        ### Update time label
+        if _enabled_fullscreen:
+            seconds = int(time.time())
+            strtime = seconds_to_str(seconds, TIME_FORMAT)
+            dpg.set_value(PREVIEW_TEXT_TIME_ID, strtime)
         ### Show debug info
         if logger.getEffectiveLevel() == logging.DEBUG:
             ### FPS
