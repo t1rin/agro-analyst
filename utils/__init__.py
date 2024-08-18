@@ -19,6 +19,7 @@ from utils.file_utils import (
     file_read,
     file_write,
     file_delete,
+    dir_exists,
     json_read,
     json_write,
     join_path,

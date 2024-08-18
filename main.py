@@ -27,6 +27,9 @@ from utils import *
 
 from dpg_wrapper import DpgWrapper
 
+if ENABLE_NEUROANALYSIS:
+    from analyzer.classification import classification
+
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +54,13 @@ async def check_images_dir() -> None:
             await asyncio.to_thread(json_write, images_json_file)
         return
     
-    await asyncio.to_thread(json_write, images_json_file)
+    name, data = list(data_images.items())[0]
+    del data_images[name]
 
-    task = []
-    for name, data in data_images.items():
-        img_name = f"./data/images/{name}"
-        task.append(asyncio.create_task(image_analysis(img_name, data)))
-    asyncio.gather(*task) # HACK #
+    await asyncio.to_thread(json_write, images_json_file, data_images)
+
+    img_name = f"./data/images/{name}"
+    asyncio.create_task(image_analysis(img_name, data))
 
 async def image_analysis(img_name: str, data: dict) -> None:
     img_exists = await asyncio.to_thread(file_exists, img_name)
@@ -113,9 +116,13 @@ async def image_analysis(img_name: str, data: dict) -> None:
     segments = await asyncio.to_thread(segmentation, image)
     logger.debug(f"Время сегментирования {(time.time() - stamp):.2f} сек")
 
-    stamp = time.time()
-    classification_ = await asyncio.to_thread(classification, image)
-    logger.debug(f"Время классификации {(time.time() - stamp):.2f} сек")
+    if ENABLE_NEUROANALYSIS:
+        stamp = time.time()
+        classification_ = await asyncio.to_thread(classification, image)
+        logger.debug(f"Время классификации {(time.time() - stamp):.2f} сек")
+    else:
+        classification_ = "Классификация отключена"
+        logger.debug("Классификация отключена")
 
     analysis_data = {
         "classification": classification_,
@@ -145,7 +152,11 @@ async def image_analysis(img_name: str, data: dict) -> None:
     )
 
 async def save_results(segments: list, data: dict, analysis_data: dict, image: MatLike) -> int:
-    path = f"./data/results/{int(time.time())}"
+    i = 0
+    while not i or dir_exists(path):
+        time_ = int(time.time()) + i
+        path = f"./data/results/{time_}"
+        i += 1
 
     await asyncio.to_thread(makedir, path)
 
@@ -429,7 +440,8 @@ async def change_tab(widget_id: int) -> None:
                 VIEWER_TAB_ID: VIEWER_TAB_BUTTON_ID}
     dpg.bind_item_theme(replaces[widget_id], active_tab_button_theme)
 
-    # await update_list_results()
+    results = await asyncio.to_thread(list_dirs, "./data/results")
+    await load_results_textures(results)
 
     await update_menu_bar()
 
@@ -529,6 +541,7 @@ async def init_interface() -> None:
                                 show=DEFAULT_SIMPLE_PREVIEW
                             )
                         with dpg.child_window():
+
                             with dpg.collapsing_header(label="Данные", default_open=True):
                                 dpg.add_text(format_text(TEXT_INFO_PANEL), 
                                     tag=PREVIEW_TEXT_INFO_ID, indent=8, wrap=0)

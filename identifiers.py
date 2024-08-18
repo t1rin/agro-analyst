@@ -53,14 +53,14 @@ class IdGenerator:
         self.active_identifiers.difference_update(ids)
         self.free_identifiers.update(ids)
     
-    def generate_id(self) -> int:
-        if 0:#self.free_identifiers: # FIX
-            id = self.free_identifiers.pop()
-        else:
-            id = dpg.generate_uuid()
-        self.active_identifiers.add(id)
-        return id
-    
     def add_active_id(self, id: int) -> None:
         self.free_identifiers.discard(id)
         self.active_identifiers.add(id)
+    
+    def generate_id(self) -> int:
+        if 0: #self.free_identifiers: # FIX
+            id = self.free_identifiers.pop()
+        else:
+            id = dpg.generate_uuid()
+        self.add_active_id(id)
+        return id

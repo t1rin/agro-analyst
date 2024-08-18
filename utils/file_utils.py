@@ -36,6 +36,10 @@ def file_delete(file: str) -> None:
     if file_exists(file):
         os.remove(file)
 
+def dir_exists(dir: str) -> bool:
+    _check_file_structure()
+    return os.path.isdir(dir)
+
 def json_read(src: str) -> dict:
     _check_file_structure()
     code = file_read(src)
