@@ -17,8 +17,6 @@ from asyncio import AbstractEventLoop
 
 dpg.create_context()
 
-from analyzer import *
-
 from config import *
 from templates import *
 from identifiers import *
@@ -27,6 +25,8 @@ from utils import *
 
 from dpg_wrapper import DpgWrapper
 
+if ENABLE_SEGMENTATION:
+    from analyzer.segmentation import segmentation
 if ENABLE_NEUROANALYSIS:
     from analyzer.classification import classification
 
@@ -52,6 +52,15 @@ async def check_images_dir() -> None:
 
     # show image
     list_images = await asyncio.to_thread(list_files, "./data/images")
+    def get_time(name: str) -> list:
+        if "_time_" in name:
+            start = name.find("_time_") + 6
+            end = name.find("_", start)
+            return [int(name[start:end])]
+        else:
+            return []
+        
+    list_images = sorted(list_images, key=get_time)
     for image in list_images:
         img_exists = await asyncio.to_thread(image_exists, image)
         if not img_exists:
@@ -88,7 +97,6 @@ async def show_image(img_name: str) -> None:
     if not img_exists:
         return
     img_basename = path_basename(img_name)
-    print(img_basename)
     if img_basename.startswith('_'):
         base_name = ".".join(img_basename.split(".")[:-1])
         keys = base_name.split("_")[1::2]
@@ -126,9 +134,13 @@ async def image_analysis(image: MatLike, img_name: str, data: dict) -> None:
 
     logger.info(f"Снимок {img_name} в обработке")
 
-    stamp = time.time()
-    segments = await asyncio.to_thread(segmentation, image)
-    logger.debug(f"Время сегментирования {(time.time() - stamp):.2f} сек")
+    if ENABLE_SEGMENTATION:
+        stamp = time.time()
+        segments = await asyncio.to_thread(segmentation, image)
+        logger.debug(f"Время сегментирования {(time.time() - stamp):.2f} сек")
+    else:
+        segments = []
+        logger.debug("Сегментация отключена")
 
     if ENABLE_NEUROANALYSIS:
         stamp = time.time()
@@ -565,7 +577,7 @@ async def init_interface() -> None:
                             with dpg.collapsing_header(label="Данные", default_open=True):
                                 dpg.add_text(format_text(TEXT_SENSORS_PANEL), 
                                     tag=PREVIEW_TEXT_SENSORS_ID, indent=8, wrap=0)
-                            with dpg.collapsing_header(label="Анализ", default_open=True):
+                            with dpg.collapsing_header(label="Анализ (последний)", default_open=True):
                                 with dpg.group(horizontal=True):
                                     dpg.add_loading_indicator(tag=ANALYSIS_INDICATOR_ID, show=False)
                                     dpg.add_image_button(

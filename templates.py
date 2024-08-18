@@ -5,11 +5,13 @@ TEXT_ABOUT_INFO = (
 )
 
 TEXT_SENSORS_PANEL = (
-    "Координаты:\n"
-    "\tGLOBAL: ({x}, {y})\n"
-    "\tLOCAL X: {localx}\n"
-    "\tLOCAL Y: {localy}\n"
-    "\tLOCAL Z: {localz}\n"
+    "Глобальные (X, Y): ({x}, {y})\n"
+    "\n"
+    "Локальные X: {localx}\n"
+    "\n"
+    "Локальные Y: {localy}\n"
+    "\n"
+    "Локальные Z: {localz}\n"
 )
 
 TEXT_INFO_PANEL = (
