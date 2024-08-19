@@ -28,7 +28,7 @@ from dpg_wrapper import DpgWrapper
 if ENABLE_SEGMENTATION:
     from analyzer.segmentation import segmentation
 if ENABLE_NEUROANALYSIS:
-    from analyzer.classification import classification
+    from analyzer.classification import classification, load_img_keras, ImageType
 
 
 logger = logging.getLogger(__name__)
@@ -87,10 +87,12 @@ async def check_images_dir() -> None:
             continue
         
         image = await asyncio.to_thread(load_image, img_name)
+        if ENABLE_NEUROANALYSIS:
+            image_keras = await asyncio.to_thread(load_img_keras, img_name)
         await asyncio.to_thread(file_delete, img_name)
         
         data = data_images.pop(names[i])
-        asyncio.create_task(image_analysis(image, img_name, data))
+        asyncio.create_task(image_analysis(image, image_keras, img_name, data))
     
     data_images_new = await asyncio.to_thread(json_read, images_json_file)
     new_names = set(list(data_images_new.keys())) - set(names)
@@ -132,7 +134,7 @@ async def show_image(img_name: str) -> None:
 
     if data: dpg.set_value(PREVIEW_TEXT_SENSORS_ID, format_text(TEXT_SENSORS_PANEL, data))
 
-async def image_analysis(image: MatLike, img_name: str, data: dict) -> None:
+async def image_analysis(image: MatLike, image_keras: ImageType, img_name: str, data: dict) -> None:
     global dpg_wrapper
     
     logger.info(f"Найден новый снимок для анализа {img_name}")
@@ -152,7 +154,7 @@ async def image_analysis(image: MatLike, img_name: str, data: dict) -> None:
 
     if ENABLE_NEUROANALYSIS:
         stamp = time.time()
-        classification_ = await asyncio.to_thread(classification, image)
+        classification_ = await asyncio.to_thread(classification, image_keras)
         logger.debug(f"Время классификации {(time.time() - stamp):.2f} сек")
     else:
         classification_ = "Классификация отключена"
