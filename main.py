@@ -28,6 +28,7 @@ from dpg_wrapper import DpgWrapper
 if ENABLE_SEGMENTATION:
     from analyzer.segmentation import segmentation
 if ENABLE_NEUROANALYSIS:
+    logger.info("Подключаем нейронку...")
     from analyzer.classification import classification
 
 
@@ -206,10 +207,10 @@ async def check_results_dir() -> None:
     list_res = await asyncio.to_thread(list_dirs, "./data/results")
     new_results = list(set(list_res) - set(results_and_items.keys()))
 
+    dpg.set_value(COUNTER_TAB_TEXT_ID, f"Снимков: {len(list_res)}")
+
     if not new_results:
         return
-
-    dpg.set_value(COUNTER_TAB_TEXT_ID, f"Снимков: {len(list_res)}")
 
     await load_results_textures(list_res)
 
