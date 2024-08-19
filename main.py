@@ -28,7 +28,6 @@ from dpg_wrapper import DpgWrapper
 if ENABLE_SEGMENTATION:
     from analyzer.segmentation import segmentation
 if ENABLE_NEUROANALYSIS:
-    logger.info("Подключаем нейронку...")
     from analyzer.classification import classification
 
 
@@ -62,36 +61,42 @@ async def check_images_dir() -> None:
             return [int(name[start:end])]
         else:
             return []
-        
+
     list_images = sorted(list_images, key=get_time)
     for image in list_images:
         img_exists = await asyncio.to_thread(image_exists, image)
-        if not img_exists:
+        img_basename = path_basename(image)
+        if (not img_exists) or (img_basename in data_images):
             continue
-        await show_image(image)
-        if path_basename(image).startswith('_'):
-            await asyncio.to_thread(file_delete, image)
+        if img_basename.startswith('_'):
+            await show_image(image)
+        await asyncio.to_thread(file_delete, image)
 
     # image analysis
     if not data_images:
         if data_images is None:
             await asyncio.to_thread(json_write, images_json_file)
         return
-    
-    await asyncio.to_thread(json_write, images_json_file)
 
-    for name, data in data_images.items():
-        img_name = f"./data/images/{name}"
+    names = list(data_images.keys())
+    for i in range(len(names)):
+        img_name = f"./data/images/{names[i]}"
 
         img_exists = await asyncio.to_thread(image_exists, img_name)
         if not img_exists:
-            logger.warning(f"Не найден снимок {img_name}")
             continue
         
         image = await asyncio.to_thread(load_image, img_name)
         await asyncio.to_thread(file_delete, img_name)
         
+        data = data_images.pop(names[i])
         asyncio.create_task(image_analysis(image, img_name, data))
+    
+    data_images_new = await asyncio.to_thread(json_read, images_json_file)
+    new_names = set(list(data_images_new.keys())) - set(names)
+    for new_name in new_names:
+        data_images[new_name] = data_images_new[new_name]        
+    await asyncio.to_thread(json_write, images_json_file, data_images)
 
 async def show_image(img_name: str) -> None:
     global dpg_wrapper, id_generator
@@ -463,6 +468,8 @@ def close_all_on_exit() -> None:
     dpg.delete_item(WINDOW_ID)
 
     dpg.stop_dearpygui()
+
+    json_write(join_path("data", "images", "images.json"))
 
     logger.info("Программа успешно завершена.")
 

@@ -56,6 +56,14 @@ def json_write(file: str, data: dict = {}) -> None:
     code = json.dumps(data, indent=4)
     file_write(file, code)
 
+def json_update(file: str, data: dict) -> None:
+    _check_file_structure()
+    old_code = file_read(file)
+    try: old_data = json.loads(old_code)
+    except: old_data = {}
+    old_data.update(data)
+    json_write(file, old_data)
+
 def makedir(path: str) -> None:
     try:
         os.makedirs(path)

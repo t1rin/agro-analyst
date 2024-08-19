@@ -4,6 +4,8 @@ import numpy as np
 
 from dearpygui.dearpygui import texture_registry, add_static_texture
 
+from utils.file_utils import file_exists
+
 from cv2.typing import MatLike
 from numpy.typing import NDArray
 
@@ -17,8 +19,10 @@ def image_record(path: str, img: MatLike) -> None:
     cv2.imwrite(path, img)
 
 def image_exists(file: str) -> bool:
+    if not file_exists(file):
+        return False
     try:
-        img = load_image(file)
+        img = cv2.imread(file, cv2.IMREAD_UNCHANGED)
         return (img is not None)
     except:
         return False
