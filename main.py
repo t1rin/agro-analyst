@@ -28,7 +28,7 @@ from dpg_wrapper import DpgWrapper
 if ENABLE_SEGMENTATION:
     from analyzer.segmentation import segmentation
 if ENABLE_NEUROANALYSIS:
-    from analyzer.classification import classification, load_img_keras, ImageType
+    from analyzer.classification import classification, load_img_keras
 
 
 logger = logging.getLogger(__name__)
@@ -134,7 +134,7 @@ async def show_image(img_name: str) -> None:
 
     if data: dpg.set_value(PREVIEW_TEXT_SENSORS_ID, format_text(TEXT_SENSORS_PANEL, data))
 
-async def image_analysis(image: MatLike, image_keras: ImageType, img_name: str, data: dict) -> None:
+async def image_analysis(image: MatLike, image_keras: ..., img_name: str, data: dict) -> None:
     global dpg_wrapper
     
     logger.info(f"Найден новый снимок для анализа {img_name}")

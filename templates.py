@@ -2,6 +2,10 @@ TEXT_ABOUT_INFO = (
     "Система для анализа состояния сельскохозяйственных полей\n"
     "\n"
     "Проект в разработке...\n"
+    "\n"
+    "\n"
+    "\n"
+    "https://github.com/t1rin/agro-analyst\n"
 )
 
 TEXT_SENSORS_PANEL = (
