@@ -427,11 +427,6 @@ def show_result(_, __, result_path: str) -> None:
     analysis_data = json_read(name_analysis_data)
 
     dpg.set_value(
-        VIEWER_TEXT_INFO_ID,
-        format_text(TEXT_INFO_PANEL, source_data),
-    )
-
-    dpg.set_value(
         VIEWER_TEXT_STATUS_ID,
         format_text(TEXT_STATUS_PANEL, analysis_data)
     )
@@ -449,6 +444,18 @@ def show_result(_, __, result_path: str) -> None:
         texture_tag=texture, 
         bounds_min=[0, 0], 
         bounds_max=[width, height]
+    )
+
+    source_data = NoneDict(source_data)
+    time_ = source_data["time"]
+    if time_:
+        source_data["time"] = seconds_to_str(time_)
+    source_data["width"] = width
+    source_data["height"] = height
+
+    dpg.set_value(
+        VIEWER_TEXT_INFO_ID,
+        format_text(TEXT_INFO_PANEL, source_data),
     )
 
     change_tab_callback(None, None, VIEWER_TAB_ID)
